@@ -1,0 +1,90 @@
+.header {
+    height: rem(60px);
+    background-color: var(--mantine-color-body);
+    border-bottom: rem(1px) solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.inner {
+    height: rem(60px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.link {
+    display: block;
+    line-height: 1;
+    padding: rem(8px) rem(12px);
+    border-radius: var(--mantine-radius-sm);
+    text-decoration: none;
+    color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
+    font-size: var(--mantine-font-size-sm);
+    font-weight: 500;
+
+    @mixin hover {
+        background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+    }
+}
+
+.linkLabel {
+    margin-right: rem(5px);
+}
+
+.test {
+    @mixin dark {
+        color: #ffffff;
+    }
+}
+
+
+.icon {
+    width: rem(22px);
+    height: rem(22px);
+}
+
+.dark {
+    @mixin dark {
+        display: none;
+    }
+
+    @mixin light {
+        display: block;
+    }
+}
+
+.light {
+    @mixin light {
+        display: none;
+    }
+
+    @mixin dark {
+        display: block;
+    }
+}
+
+.discordButton {
+    --discord-color: #5865f2;
+    --discord-color-hover: #4f5bd5;
+
+    [data-mantine-color-scheme] & {
+        background-color: var(--discord-color);
+        border-color: var(--discord-color);
+        color: var(--mantine-color-white);
+
+        @mixin hover {
+            background-color: var(--discord-color-hover);
+            border-color: var(--discord-color-hover);
+        }
+    }
+}
+
+.socialButtonSection {
+    &[data-position='left'] {
+        margin-right: var(--mantine-spacing-md);
+
+        @mixin rtl {
+            margin-left: var(--mantine-spacing-md);
+            margin-right: 0;
+        }
+    }
+}
