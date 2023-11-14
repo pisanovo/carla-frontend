@@ -16,7 +16,7 @@ import {Stack} from "@mantine/core";
 export function MapView() {
 
     const carlaAgentData= useSWRSubscription('ws://127.0.0.1:8200/carla', (key, { next }) => {
-        const socket = new WebSocket(key);
+        const socket = new WebSocket(key)
         socket.addEventListener('message', (event) => next(
             null,
             prev => {
