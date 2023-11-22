@@ -2,7 +2,7 @@
 
 import { Welcome } from '../components/Welcome/Welcome';
 import { ColorSchemeToggle } from '../components/ColorSchemeToggle/ColorSchemeToggle';
-import { Text } from '@mantine/core';
+import {Overlay, Pill, Text} from '@mantine/core';
 import { MapView } from '@/components/MapView/MapView'
 import {
     AppShell,
@@ -21,7 +21,14 @@ import {
 import {HeaderIndex} from "@/components/Header/HeaderIndex";
 import {FooterSocial} from "@/components/Footer/Footer";
 import {Affix} from "@mantine/core";
-import {IconMessageCircle, IconNavigationCode, IconPhoto, IconSettings, IconX} from "@tabler/icons-react";
+import {
+    IconCircleDashed,
+    IconMessageCircle,
+    IconNavigationCode,
+    IconPhoto,
+    IconSettings,
+    IconX
+} from "@tabler/icons-react";
 import {Settings} from "@/components/Settings/Settings";
 import {useState} from "react";
 
@@ -80,7 +87,15 @@ export default function HomePage() {
                     </Grid.Col>
                     <Grid.Col span={{base: 12, lg: 8}}>
                         <Card h={{base: "calc(100vh - 11rem)"}} mb={{base: 140, lg: 0}} padding="sm">
+                            <Grid justify="center">
+                                {/*<IconCircleDashed style={{ width: rem(14), height: rem(14) }} />*/}
+                                <Overlay ml={90} mr={90} h={30} mt={18} zIndex={1} center={true} color="#000" backgroundOpacity={0.00} fixed={false}>
+                                    <Pill size="sm"><Group gap="xs">Following ID 0</Group></Pill>
+                                </Overlay>
+                            </Grid>
                             <MapView />
+
+
                         </Card>
                     </Grid.Col>
                 </Grid>
