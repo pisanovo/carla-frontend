@@ -4,7 +4,7 @@ import { MantineProvider, ColorSchemeScript } from '@mantine/core';
 import { theme } from '../theme';
 
 export const metadata = {
-  title: 'Map View',
+  title: 'MapView',
   description: 'I am using Mantine with Next.js!',
 };
 

@@ -6,36 +6,62 @@ import TileLayer from 'ol/layer/Tile.js';
 import View from 'ol/View.js';
 import {transform} from 'ol/proj.js';
 import 'ol/ol.css';
-import {useEffect, useRef, useState} from "react";
+import {Dispatch, MutableRefObject, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import {Vector as VectorSource} from 'ol/source.js';
-import {Vector as VectorLayer} from 'ol/layer.js';
+import {Group, Vector as VectorLayer} from 'ol/layer.js';
 import useSWRSubscription from 'swr/subscription'
-import {Feature} from "ol";
-import {Circle, Point} from "ol/geom";
+import {Collection, Feature} from "ol";
+import {Circle, Point, Polygon} from "ol/geom";
+import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking/MapView/MapView"
+import {MapView as TemporalCloakingMapView} from "../Algorithms/TemporalCloaking/MapView/MapView"
+import LayerGroup from "ol/layer/Group";
+import BaseLayer from "ol/layer/Base";
 
-// https://github.com/carla-simulator/carla/issues/2737#issuecomment-645009877
-export function MapView() {
+
+export interface IMapView {
+    map: any,
+    parent: {
+        parent_layers: {vehicle_layer: VectorLayer<VectorSource>},
+        parent_features: {vehicle_features: Feature[]}
+    },
+    layers: Collection<BaseLayer>,
+    carla_settings: any,
+    algo_data: any
+}
+
+export function MapView(props: any) {
 
     const [map, setMap] = useState<Map>();
+    const [locationCloakingLayerGroup, setLocationCloakingLayerGroup] = useState<LayerGroup>();
+    const [temporalCloakingLayerGroup, setTemporalCloakingLayerGroup] = useState<LayerGroup>();
     const [vehicleLayer, setVehicleLayer] = useState<VectorLayer<VectorSource>>();
     const [vehicleFeatures, setVehicleFeatures] = useState<Feature[]>([]);
-    const mapRef = useRef();
-    mapRef.current = map;
+    const [activeVehicles, setActiveVehicles] = useState({});
+    const mapRef = useRef<Map>();
 
     useEffect(() => {
         var vectorSource = new VectorSource({
             features: vehicleFeatures
-        })
+        });
         const initialVehicleLayer = new VectorLayer({
-            source: vectorSource
-        })
+            source: vectorSource,
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
+            zIndex: 99
+        });
+
+        const initialLocationCloakingLayerGroup = new LayerGroup({layers: []});
+        const initialTemporalCloakingLayerGroup = new LayerGroup({layers: []});
+
         const init_map = new Map({
-            target: mapRef.current,
+            target: mapRef.current as unknown as HTMLElement,
             layers: [
                 new TileLayer({
                     source: new OSM()
                 }),
-                initialVehicleLayer
+                initialVehicleLayer,
+                initialLocationCloakingLayerGroup,
+                initialTemporalCloakingLayerGroup
             ],
             view: new View({
                 center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
@@ -45,16 +71,19 @@ export function MapView() {
 
         setMap(init_map);
         setVehicleLayer(initialVehicleLayer);
+        setLocationCloakingLayerGroup(initialLocationCloakingLayerGroup);
+        setTemporalCloakingLayerGroup(initialTemporalCloakingLayerGroup);
     }, []);
 
-    const carlaAgentData= useSWRSubscription('ws://127.0.0.1:8200/carla', (key, { next }) => {
+    const carlaAgentData= useSWRSubscription(
+        'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/position-stream',
+        (key, { next }) => {
         const socket = new WebSocket(key)
         socket.addEventListener('message', (event) => next(
             null,
             prev => {
                 // console.log("prev", JSON.stringify(prev))
                 var event_json = JSON.parse(event.data);
-
                 var result = [...event_json["data"]]
 
                 if (prev !== undefined) {
@@ -71,8 +100,6 @@ export function MapView() {
                     }
                 }
 
-                // console.log("new", JSON.stringify(result))
-
                 return result
             })
         )
@@ -80,127 +107,131 @@ export function MapView() {
     })
 
     useEffect(() => {
-
-        if (carlaAgentData.data !== undefined) {
-            let features = [];
+        // console.log("carlaAgentData", carlaAgentData.data)
+        if (carlaAgentData.data !== undefined && activeVehicles["agent_ids"]) {
+            // let features = [];
             for (let i = 0; i < carlaAgentData.data.length; i++) {
                 const entry = carlaAgentData.data[i];
+                // console.log(entry["id"]);
+                const id = "CARLA-id-"+entry["id"];
+                // console.log(id)
+                // console.log(activeVehicles["agent_ids"].includes(id))
+                // console.log(activeVehicles["agent_ids"].contains(id))
+                if (!(activeVehicles["agent_ids"].includes(id))) {
+                    return;
+                }
                 const location = entry["location"];
+
                 var point = new Point([location["y"], location["x"]]).transform('EPSG:4326', 'EPSG:3857');
 
-                let found = false;
+                const feature = vehicleLayer?.getSource()?.getFeatureById(entry["id"]);
 
-                // for (let j = 0; j < features.length; j++) {
-                //     let feature = features[j];
-                //     if (feature.getGeometryName() === entry["id"]) {
-                //         console.log("HOP")
-                //         feature.setGeometry(point);
-                //     }
-                //     found = true;
-                // }
-                // if (!found) {
-                    var feature = new Feature({
+                if (feature) {
+                    feature.setGeometry(point);
+                } else {
+                    var new_feature = new Feature({
                         name: entry["id"],
                         geometry: point
                     });
-                    features.push(feature);
-                // }
+                    new_feature.setId(entry["id"]);
+
+                    vehicleLayer?.getSource()?.addFeature(new_feature);
+                }
+
+
+                // features.push(feature);
             }
 
-            // console.log("features", features);
-
-            vehicleLayer.setSource(
-                new VectorSource({
-                    features: features
-                })
-            )
-
-            // setVehicleFeatures(features);
+            // if (vehicleLayer !== undefined) {
+            //     vehicleLayer.setSource(
+            //         new VectorSource({
+            //             features: features
+            //         })
+            //     )
+            // }
         }
     }, [carlaAgentData]);
 
-    // var vectorAgentPoint = new VectorSource({});
-    // var vehicleFeatureList: Feature[] = [];
+    useEffect(() => {
+        if (activeVehicles["agent_ids"] === undefined) {
+            return;
+        }
+        const features = vehicleLayer?.getSource()?.getFeatures();
+        let keys = Object.keys(activeVehicles);
+        if (features) {
+            for (let i = 0; i < features.length; i++) {
+                const feature = features[i];
+                const id = feature.getId();
 
-    // useEffect(() => {
-    //     vectorAgentPoint.clear();
-    //
-    //     if (carlaAgentData.data !== undefined) {
-    //         for (let i = 0; i < carlaAgentData.data.length; i++) {
-    //             const entry = carlaAgentData.data[i];
-    //             const location = entry["location"];
-    //             // var point = new Point([location["y"], location["x"]]).transform('EPSG:4326', 'EPSG:3857');
-    //             var circle2 = new Circle(
-    //                 olProj.transform([location["y"], location["x"]], 'EPSG:4326', 'EPSG:3857'),
-    //                 900000 / olProj.getPointResolution('EPSG:4326', 1, [9.108243543959933, 48.74478388922745], 'm')
-    //             )
-    //             let features = vectorAgentPoint.getFeatures();
-    //             let found = false;
-    //
-    //             for (let j = 0; j < features.length; j++) {
-    //                 let feature = features[j];
-    //                 if (feature.getGeometryName() === entry["id"]) {
-    //                     feature.setGeometry(circle2);
-    //                 }
-    //             }
-    //             if (!found) {
-    //                 var feature = new Feature({
-    //                     name: entry["id"],
-    //                     geometry: circle2
-    //                 });
-    //                 vectorAgentPoint.addFeature(feature);
-    //             }
-    //
-    //         }
-    //     }
-    //     // console.log("vap", vectorAgentPoint.getFeatures())
-    // }, [carlaAgentData]);
-    //
-    //
-    // useEffect(() => {
-    //
-    //     var point = new Point([9.108243543959933, 48.74478388922745]).transform('EPSG:4326', 'EPSG:3857');
-    //     var circle = new Circle(
-    //         olProj.transform([9.108243543959933, 48.74478388922745], 'EPSG:4326', 'EPSG:3857'),
-    //         1000).transform('EPSG:3857', 'EPSG:4326')
-    //     var circle2 = new Circle(
-    //         olProj.transform([9.108243543959933, 48.74478388922745], 'EPSG:4326', 'EPSG:3857'),
-    //         900000 / olProj.getPointResolution('EPSG:4326', 1, [9.108243543959933, 48.74478388922745], 'm')
-    //     )
-    //     var feature = new Feature({geometry: circle2});
-    //     vectorAgentPoint.addFeature(feature);
-    //
-    //     console.log("f", vectorAgentPoint.getFeatures());
-    //     const InitializeMap = new Map({
-    //         target: 'map',
-    //         layers: [
-    //             new TileLayer({
-    //                 source: new OSM()
-    //             }),
-    //             new VectorLayer({
-    //                 source: vectorAgentPoint,
-    //             }),
-    //         ],
-    //         view: new View({
-    //             center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
-    //             zoom: 17,
-    //         }),
-    //     });
-    //
-    //     InitializeMap.setTarget(mapTargetElement.current || "")
-    //     setMap(InitializeMap)
-    //
-    //     return () => InitializeMap.setTarget("")
-    //
-    //
-    // }, []);
-    //
+                if (!(activeVehicles["agent_ids"].includes("CARLA-id-"+id))) {
+                    vehicleLayer?.getSource()?.removeFeature(feature);
+                }
+            }
+        }
+    }, [activeVehicles]);
 
+    useEffect(() => {
+        if (props.algorithm !== "Spatial-location cloaking") {
+            locationCloakingLayerGroup?.getLayers().clear();
+        }
+        if (props.algorithm !== "Temporal cloaking []") {
+            temporalCloakingLayerGroup?.getLayers().clear();
+        }
+    }, [props.algorithm]);
+
+    useSWRSubscription(
+        'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/agents',
+        (key, { next }) => {
+            const socket = new WebSocket(key)
+            socket.addEventListener('message', (event) => next(
+                null,
+                prev => {
+                    var event_json = JSON.parse(event.data);
+                    setActiveVehicles(s => ({...s, agent_ids: event_json["data"]}));
+                    props.algo.locationCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
+                    props.algo.temporalCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
+                })
+            )
+            return () => socket.close()
+    })
+
+    const parent = {
+        parent_layers: {
+            vehicle_layer: vehicleLayer as VectorLayer<VectorSource>
+        },
+        parent_features: {
+            vehicle_features: vehicleFeatures
+        }
+    }
 
 
     return (
-        <>
-            <div ref={mapRef} className="map" style={{ height: "inherit", width: "inherit"}}></div>
-        </>
+            <div
+                ref={mapRef as unknown as RefObject<HTMLDivElement>}
+                style={{ height: "inherit", width: "inherit"}}
+            >
+                {props.algorithm === "Spatial-location cloaking" &&
+                    <LocationCloakingMapView
+                        map={map}
+                        parent={parent}
+                        carla_settings={props.carlaSettings}
+                        algo_data={props.algo.locationCloakingSettings}
+                        layers={locationCloakingLayerGroup.getLayers()}
+                    />
+                }
+                {props.algorithm === "Temporal cloaking []" &&
+                    <TemporalCloakingMapView
+                        map={map}
+                        parent={parent}
+                        carla_settings={props.carlaSettings}
+                        algo_data={props.algo.temporalCloakingSettings}
+                        layers={temporalCloakingLayerGroup.getLayers()}
+                    />
+                }
+            </div>
     );
+
+
 }
+
+
