@@ -341,7 +341,6 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
             }
         }
     }, [granuleData.data, algo_data.data.vicinity_granules]);
-
         return (
           <div/>
         );

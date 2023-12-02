@@ -16,6 +16,8 @@ import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking
 import {MapView as TemporalCloakingMapView} from "../Algorithms/TemporalCloaking/MapView/MapView"
 import LayerGroup from "ol/layer/Group";
 import BaseLayer from "ol/layer/Base";
+import {Fill, Stroke, Style} from "ol/style";
+import Text from 'ol/style/Text.js';
 
 
 export interface IMapView {
@@ -43,11 +45,26 @@ export function MapView(props: any) {
         var vectorSource = new VectorSource({
             features: vehicleFeatures
         });
+
+        var text_style = new Style({
+            text: new Text({
+                font: '12px Calibri,sans-serif',
+                fill: new Fill({ color: '#000' }),
+                backgroundFill: new Fill({ color: '#25262B26' }),
+                padding: [0, -1, -2, 2],
+                offsetY: -12,
+            }),
+        });
+
         const initialVehicleLayer = new VectorLayer({
             source: vectorSource,
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 99
+            zIndex: 99,
+            style: function(feature) {
+                text_style.getText().setText(feature.get('label'));
+                return [text_style];
+            }
         });
 
         const initialLocationCloakingLayerGroup = new LayerGroup({layers: []});
@@ -107,16 +124,10 @@ export function MapView(props: any) {
     })
 
     useEffect(() => {
-        // console.log("carlaAgentData", carlaAgentData.data)
         if (carlaAgentData.data !== undefined && activeVehicles["agent_ids"]) {
-            // let features = [];
             for (let i = 0; i < carlaAgentData.data.length; i++) {
                 const entry = carlaAgentData.data[i];
-                // console.log(entry["id"]);
                 const id = "CARLA-id-"+entry["id"];
-                // console.log(id)
-                // console.log(activeVehicles["agent_ids"].includes(id))
-                // console.log(activeVehicles["agent_ids"].contains(id))
                 if (!(activeVehicles["agent_ids"].includes(id))) {
                     return;
                 }
@@ -129,26 +140,16 @@ export function MapView(props: any) {
                 if (feature) {
                     feature.setGeometry(point);
                 } else {
+
                     var new_feature = new Feature({
                         name: entry["id"],
-                        geometry: point
+                        geometry: point,
+                        label: entry["id"].toString()
                     });
                     new_feature.setId(entry["id"]);
-
                     vehicleLayer?.getSource()?.addFeature(new_feature);
                 }
-
-
-                // features.push(feature);
             }
-
-            // if (vehicleLayer !== undefined) {
-            //     vehicleLayer.setSource(
-            //         new VectorSource({
-            //             features: features
-            //         })
-            //     )
-            // }
         }
     }, [carlaAgentData]);
 
