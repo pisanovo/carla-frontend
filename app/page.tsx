@@ -1,6 +1,6 @@
 "use client";
 
-import {Overlay, Pill, Text} from '@mantine/core';
+import {ActionIcon, Affix, Button, Container, Flex, Overlay, Pill, Text} from '@mantine/core';
 import { MapView } from '@/components/MapView/MapView'
 import {
     AppShell,
@@ -17,6 +17,8 @@ import {
 } from "@mantine/core";
 import {HeaderIndex} from "@/components/Header/HeaderIndex";
 import {
+    Icon123,
+    IconAdjustments,
     IconNavigationCode,
     IconSettings,
     IconX
@@ -41,6 +43,7 @@ export default function HomePage() {
     const [locationCloakingData, setLocationCloakingData] = useState({});
     const [temporalCloakingSettings, setTemporalCloakingSettings] = useState({});
     const [temporalCloakingData, setTemporalCloakingData] = useState({});
+    const [showVehicleLabels, setShowVehicleLabels] = useState(false);
 
     const algorithmData  = {
         locationCloakingSettings: {
@@ -108,7 +111,26 @@ export default function HomePage() {
                                 }
                             </Overlay>
 
-                            <MapView algorithm={algorithm} algo={algorithmData} carlaSettings={carlaSettings} />
+                                <Overlay ml={20} mr={90} mb={20} w={35} zIndex={1} fixed={false} color="#000"
+                                         backgroundOpacity={0.00}
+                                         styles={{
+                                            root: { display: "flex", top: "calc(95%)" }
+                                         }}
+                                >
+                                    <ActionIcon
+                                        variant="default"
+                                        color="gray"
+                                        aria-label="Settings"
+                                        onClick={(event) => setShowVehicleLabels(!showVehicleLabels)}
+                                        styles={{
+                                            root: { alignSelf: "flex-end" }
+                                        }}
+                                    >
+                                        <Icon123 style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                                    </ActionIcon>
+                                </Overlay>
+
+                            <MapView algorithm={algorithm} algo={algorithmData} carlaSettings={carlaSettings} showLabels={showVehicleLabels} />
                         </Card>
                     </Grid.Col>
                 </Grid>

@@ -11,12 +11,12 @@ import {Vector as VectorSource} from 'ol/source.js';
 import {Group, Vector as VectorLayer} from 'ol/layer.js';
 import useSWRSubscription from 'swr/subscription'
 import {Collection, Feature} from "ol";
-import {Circle, Point, Polygon} from "ol/geom";
+import {Point, Polygon} from "ol/geom";
 import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking/MapView/MapView"
 import {MapView as TemporalCloakingMapView} from "../Algorithms/TemporalCloaking/MapView/MapView"
 import LayerGroup from "ol/layer/Group";
 import BaseLayer from "ol/layer/Base";
-import {Fill, Stroke, Style} from "ol/style";
+import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
 
 
@@ -42,19 +42,46 @@ export function MapView(props: any) {
     const mapRef = useRef<Map>();
 
     useEffect(() => {
+        console.log("AAAA", props.showLabels)
+        const features = vehicleLayer?.getSource()?.getFeatures();
+
+        console.log("AAAA2", features?.length)
+        if (features !== undefined) {
+            for (let i = 0; i < features.length; i++) {
+                const feature = features[i];
+                if (props.showLabels) {
+                    feature.set("label", feature.get("name").toString());
+                } else {
+                    feature.set("label", "");
+                }
+            }
+        }
+
+    }, [props.showLabels]);
+
+    useEffect(() => {
         var vectorSource = new VectorSource({
             features: vehicleFeatures
         });
 
+
         var text_style = new Style({
+            image: new Circle({
+                fill: new Fill({color: [245,121,0,0.8]}),
+                stroke: new Stroke({color: [0,0,0,1]}),
+                radius: 3.5
+            }),
             text: new Text({
                 font: '12px Calibri,sans-serif',
+                placement: 'point',
                 fill: new Fill({ color: '#000' }),
                 backgroundFill: new Fill({ color: '#25262B26' }),
                 padding: [0, -1, -2, 2],
                 offsetY: -12,
             }),
         });
+
+        // var style = [iconStyle, text_style];
 
         const initialVehicleLayer = new VectorLayer({
             source: vectorSource,
@@ -144,7 +171,7 @@ export function MapView(props: any) {
                     var new_feature = new Feature({
                         name: entry["id"],
                         geometry: point,
-                        label: entry["id"].toString()
+                        label: ""
                     });
                     new_feature.setId(entry["id"]);
                     vehicleLayer?.getSource()?.addFeature(new_feature);
