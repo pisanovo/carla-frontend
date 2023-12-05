@@ -1,22 +1,24 @@
 import {useEffect, useState} from "react";
 import {IMapView} from "@/components/MapView/MapView";
-import {Geometry, Polygon} from "ol/geom";
+import {Geometry, Polygon, Circle} from "ol/geom";
 import {Feature} from "ol";
 import VectorSource from "ol/source/Vector";
 import VectorLayer from "ol/layer/Vector";
-import {Fill, Stroke, Style} from "ol/style";
+import {Fill, Stroke, Style, Circle as CircleStyle} from "ol/style";
+import {circular} from 'ol/geom/Polygon';
 import useSWRSubscription from "swr/subscription";
 import Map from "ol/Map";
 import {asArray} from "ol/color";
 
 
-export function MapView({ map, parent, carla_settings, algo_data, layers }: IMapView) {
+export function MapView({ map, parent, carla_settings, position_data, algo_data, layers }: IMapView) {
         // TODO: Your implementation
         // If you need to access, e.g., vehicles drawn on the map see the map_obj parent layers and features
         const [planeData, setPlaneData] = useState<any>({});
         const [gridLayer, setGridLayer] = useState<VectorLayer<VectorSource>>();
         const [positionGranulesLayer, setPositionGranulesLayer] = useState<VectorLayer<VectorSource>>();
         const [vicinityGranulesLayer, setVicinityGranulesLayer] = useState<VectorLayer<VectorSource>>();
+        const [vicinityShapeLayer, setVicinityShapeLayer] = useState<VectorLayer<VectorSource>>();
         const [maxGridLevel, setMaxGridLevel] = useState(0);
 
         useEffect(() => {
@@ -49,14 +51,23 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                     zIndex: 1
                 })
 
-            const initialVicinityGranulesLayer = new VectorLayer({
-                source: new VectorSource({
-                    features: []
-                }),
-                updateWhileAnimating: true,
-                updateWhileInteracting: true,
-                zIndex: 1
-            })
+                const initialVicinityGranulesLayer = new VectorLayer({
+                    source: new VectorSource({
+                        features: []
+                    }),
+                    updateWhileAnimating: true,
+                    updateWhileInteracting: true,
+                    zIndex: 1
+                })
+
+                const initialVicinityShapeLayer = new VectorLayer({
+                    source: new VectorSource({
+                        features: []
+                    }),
+                    updateWhileAnimating: true,
+                    updateWhileInteracting: true,
+                    zIndex: 3
+                })
 
 
                 var selected_polygon_style = new Style({
@@ -70,10 +81,13 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                 layers.push(initialGridLayer);
                 layers.push(initialPositionGranulesLayer);
                 layers.push(initialVicinityGranulesLayer);
+                layers.push(initialVicinityShapeLayer);
 
                 setGridLayer(initialGridLayer);
                 setPositionGranulesLayer(initialPositionGranulesLayer);
                 setVicinityGranulesLayer(initialVicinityGranulesLayer);
+                setVicinityShapeLayer(initialVicinityShapeLayer);
+
                 return () => {layers.clear()}
         }, [planeData]);
 
@@ -86,7 +100,6 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                     prev => {
                             var event_json = JSON.parse(event.data);
                             let result = structuredClone(prev);
-
                             if (event_json["planeData"] !== undefined) {
                                     setPlaneData({
                                             "lon_min": event_json["planeData"]["lonMin"],
@@ -123,7 +136,8 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                                         now: {
                                             level: event_json["level"],
                                             position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules
+                                            vicinity_granules: remaining_vicinity_granules,
+                                            vicinity_radius: event_json["vicinityShape"]["radius"]
                                         },
                                         prev: {}
                                     }
@@ -133,7 +147,8 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                                         now: {
                                             level: event_json["level"],
                                             position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules
+                                            vicinity_granules: remaining_vicinity_granules,
+                                            vicinity_radius: event_json["vicinityShape"]["radius"]
                                         },
                                         prev: result[alias].now
                                     }
@@ -200,6 +215,44 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
 
         }
     }, [granuleData.data]);
+
+    useEffect(() => {
+        // console.log(vicinityShapeLayer?.getSource()?.getFeatures())
+        for (let i = 0; i < position_data.length; i++) {
+            const data = position_data[i];
+            const id = "CARLA-id-" + data.id;
+
+            if (granuleData.data !== undefined && granuleData.data[id] !== undefined) {
+                const feature = vicinityShapeLayer?.getSource()?.getFeatureById(id);
+
+                // console.log(Number(granuleData.data[id].vicinity_radius) * Number(data["greatCircleDistanceFactor"]));
+                // console.log(Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"])
+
+                const polygon_style = new Style({
+                    stroke : new Stroke({
+                        color: "#000000"
+                    })
+                });
+
+
+                const polygon = circular([data["location"]["y"], data["location"]["x"]], Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"]).transform('EPSG:4326', 'EPSG:3857')
+                const circle = new Circle([data["location"]["y"], data["location"]["x"]], Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"]).transform('EPSG:4326', 'EPSG:3857')
+
+                if (feature) {
+                    // console.log(circle)
+                    feature.setGeometry(polygon);
+                } else {
+                    var new_feature = new Feature({
+                        name: id,
+                        geometry: polygon
+                    });
+                    new_feature.setId(id);
+                    new_feature.setStyle(polygon_style);
+                    vicinityShapeLayer?.getSource()?.addFeature(new_feature);
+                }
+            }
+        }
+    }, [position_data]);
 
     useEffect(() => {
 
@@ -300,6 +353,10 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
             if(algo_data.data.vicinity_granules[agent] !== undefined) {
 
                 var polygon_style = new Style({
+                    stroke: new Stroke({
+                        color: [255, 255, 0, 0.0],
+                        width: 50
+                    }),
                     fill: new Fill({
                         color: asArray(algo_data.data.vicinity_granules[agent].color + alpha)
                     })
@@ -335,7 +392,7 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
                 }
 
                 if (new_rendered_granules.length > 0) {
-                    const features = get_granule_features(planeData, new_rendered_granules, vicinity_data.length - 1, agent, polygon_style);
+                    const features = get_granule_features(planeData, new_rendered_granules, vicinity_data.length - 1, agent, polygon_style, 0.9);
                     vicinityGranulesLayer?.getSource()?.addFeatures(features);
                 }
             }
@@ -346,7 +403,7 @@ export function MapView({ map, parent, carla_settings, algo_data, layers }: IMap
         );
 }
 
-function get_granule_features(plane_data, granule_ids, level, id, style) {
+function get_granule_features(plane_data, granule_ids, level, id, style, scale=1.0) {
     let features = [];
     for (let i = 0; i < granule_ids.length; i++) {
         const granule_id = granule_ids[i];
@@ -361,14 +418,18 @@ function get_granule_features(plane_data, granule_ids, level, id, style) {
         const granule_lon_min = plane_data.lon_min + (level_granule_width * granule_column_index);
         const granule_lat_min = plane_data.lat_max - (level_granule_height * (granule_row_index + 1));
 
+        const polygon = new Polygon([[
+            [granule_lon_min, granule_lat_min],
+            [granule_lon_min + level_granule_width, granule_lat_min],
+            [granule_lon_min + level_granule_width, granule_lat_min + level_granule_height],
+            [granule_lon_min, granule_lat_min + level_granule_height],
+            [granule_lon_min, granule_lat_min]
+        ]]).transform('EPSG:4326', 'EPSG:3857')
+
+        polygon.scale(scale, scale)
+
         const granuleFeature = new Feature({
-            geometry: new Polygon([[
-                [granule_lon_min, granule_lat_min],
-                [granule_lon_min + level_granule_width, granule_lat_min],
-                [granule_lon_min + level_granule_width, granule_lat_min + level_granule_height],
-                [granule_lon_min, granule_lat_min + level_granule_height],
-                [granule_lon_min, granule_lat_min]
-            ]]).transform('EPSG:4326', 'EPSG:3857')
+            geometry: polygon
         });
         granuleFeature.setId(id + ":" + granule_id);
         granuleFeature.setStyle(style);

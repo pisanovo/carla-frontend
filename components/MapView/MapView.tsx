@@ -24,9 +24,10 @@ export interface IMapView {
     map: any,
     parent: {
         parent_layers: {vehicle_layer: VectorLayer<VectorSource>},
-        parent_features: {vehicle_features: Feature[]}
+        parent_features: {vehicle_features: Feature[]},
     },
     layers: Collection<BaseLayer>,
+    position_data: any
     carla_settings: any,
     algo_data: any
 }
@@ -39,13 +40,12 @@ export function MapView(props: any) {
     const [vehicleLayer, setVehicleLayer] = useState<VectorLayer<VectorSource>>();
     const [vehicleFeatures, setVehicleFeatures] = useState<Feature[]>([]);
     const [activeVehicles, setActiveVehicles] = useState({});
+    const [positionData, setPositionData] = useState([]);
     const mapRef = useRef<Map>();
 
     useEffect(() => {
-        console.log("AAAA", props.showLabels)
         const features = vehicleLayer?.getSource()?.getFeatures();
 
-        console.log("AAAA2", features?.length)
         if (features !== undefined) {
             for (let i = 0; i < features.length; i++) {
                 const feature = features[i];
@@ -126,10 +126,8 @@ export function MapView(props: any) {
         socket.addEventListener('message', (event) => next(
             null,
             prev => {
-                // console.log("prev", JSON.stringify(prev))
                 var event_json = JSON.parse(event.data);
                 var result = [...event_json["data"]]
-
                 if (prev !== undefined) {
                     for (let i = 0; i < prev.length; i++) {
                         var found = false;
@@ -152,6 +150,7 @@ export function MapView(props: any) {
 
     useEffect(() => {
         if (carlaAgentData.data !== undefined && activeVehicles["agent_ids"]) {
+            setPositionData(d => (carlaAgentData.data));
             for (let i = 0; i < carlaAgentData.data.length; i++) {
                 const entry = carlaAgentData.data[i];
                 const id = "CARLA-id-"+entry["id"];
@@ -179,6 +178,10 @@ export function MapView(props: any) {
             }
         }
     }, [carlaAgentData]);
+
+    // useEffect(() => {
+    //     console.log("HSJHKJ", positionData)
+    // }, [positionData]);
 
     useEffect(() => {
         if (activeVehicles["agent_ids"] === undefined) {
@@ -243,6 +246,7 @@ export function MapView(props: any) {
                         map={map}
                         parent={parent}
                         carla_settings={props.carlaSettings}
+                        position_data={positionData}
                         algo_data={props.algo.locationCloakingSettings}
                         layers={locationCloakingLayerGroup.getLayers()}
                     />
