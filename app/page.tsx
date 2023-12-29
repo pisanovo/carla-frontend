@@ -28,6 +28,7 @@ import {useRef, useState} from "react";
 import {DataTab as LocationCloakingDataTab} from "@/components/Algorithms/LocationCloaking/DataTab/DataTab";
 import {MapBar as LocationCloakingMapBar} from "@/components/Algorithms/LocationCloaking/MapBar/MapBar";
 import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
+import {REDUNDANT_DUMMY_LOCATIONS_ID} from '@/components/Algorithms/RedundantDummyLocations/config';
 
 type CarlaSettings = {
     ip: string;
@@ -92,7 +93,7 @@ export default function HomePage() {
                                             algo_data={algorithmData.locationCloakingSettings} />
                                     }
                                     {
-                                        algorithm == "Redundant dummy locations []" &&
+                                        algorithm == REDUNDANT_DUMMY_LOCATIONS_ID &&
                                             <RedundantDummyLocationsDataTab
                                                 carla_settings={carlaSettings}
                                                 algo_data={algorithmData.redundantDummyLocationsSettings} />
