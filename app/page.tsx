@@ -27,6 +27,7 @@ import {SettingsTab} from "@/components/SettingsTab/SettingsTab";
 import {useRef, useState} from "react";
 import {DataTab as LocationCloakingDataTab} from "@/components/Algorithms/LocationCloaking/DataTab/DataTab";
 import {MapBar as LocationCloakingMapBar} from "@/components/Algorithms/LocationCloaking/MapBar/MapBar";
+import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
 
 type CarlaSettings = {
     ip: string;
@@ -57,7 +58,8 @@ export default function HomePage() {
             setSettings: setTemporalCloakingSettings,
             data: temporalCloakingData,
             setData: setTemporalCloakingData
-        }
+        },
+        redundantDummyLocationsSettings: {}
     };
 
   return (
@@ -88,6 +90,12 @@ export default function HomePage() {
                                         <LocationCloakingDataTab
                                             carla_settings={carlaSettings}
                                             algo_data={algorithmData.locationCloakingSettings} />
+                                    }
+                                    {
+                                        algorithm == "Redundant dummy locations []" &&
+                                            <RedundantDummyLocationsDataTab
+                                                carla_settings={carlaSettings}
+                                                algo_data={algorithmData.redundantDummyLocationsSettings} />
                                     }
 
                                 </Tabs.Panel>
