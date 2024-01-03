@@ -71,7 +71,7 @@ export default function HomePage() {
             <AppShell.Main>
                 <Grid mt={30} mr={30} ml={30}>
                     <Grid.Col span={{base: 12, lg: 4}}>
-                        <Card h="calc(100vh - 11rem)" padding="sm">
+                        <Card h="calc(100vh - 11.5rem)" padding="sm">
                             <Tabs defaultValue="settings">
                                 <Tabs.List>
                                     <Tabs.Tab value="data" leftSection={<IconNavigationCode style={iconStyle} />}>
@@ -102,7 +102,7 @@ export default function HomePage() {
                         </Card>
                     </Grid.Col>
                     <Grid.Col span={{base: 12, lg: 8}}>
-                        <Card h={{base: "calc(100vh - 11rem)"}} mb={{base: 140, lg: 0}} padding="sm">
+                        <Card h={{base: "calc(100vh - 11.5rem)"}} mb={{base: 140, lg: 0}} padding="sm">
                             <Overlay ml={90} mr={90} h={30} mt={19} zIndex={1} color="#000" backgroundOpacity={0.00} fixed={false}>
                                 {algorithm == "Spatial-location cloaking" &&
                                     <LocationCloakingMapBar
