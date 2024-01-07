@@ -113,10 +113,13 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
                 }
             }
 
-            if (maxLevel > currentMaxLevel) {
-                setMaxGridLevel(maxLevel+1);
+            const len_source_features = gridLayer?.getSource()?.getFeatures().length;
+            const current_max_level = Math.max(0, Math.log2(len_source_features + 1) - 2);
 
-                for (let i = currentMaxLevel + 1; i <= maxLevel+1; i++) {
+            if (maxLevel > current_max_level && Number.isInteger(current_max_level)) {
+                const start_at = current_max_level == 0 ? 0 : current_max_level + 1;
+
+                for (let i = start_at + 1; i <= maxLevel + 1; i++) {
                     var polygon_style = new Style({
                         stroke: new Stroke({
                             width: (Math.max(2, 8 / i)) / map.getView().getResolution(),
@@ -147,7 +150,6 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
 
                         gridLayer?.getSource()?.addFeatures([north_south, east_west]);
                     }
-
                 }
             }
 
@@ -155,16 +157,12 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
     }, [granuleData.data]);
 
     useEffect(() => {
-        // console.log(vicinityShapeLayer?.getSource()?.getFeatures())
         for (let i = 0; i < position_data.length; i++) {
             const data = position_data[i];
             const id = "CARLA-id-" + data.id;
 
             if (granuleData.data !== undefined && granuleData.data[id] !== undefined) {
                 const feature = vicinityShapeLayer?.getSource()?.getFeatureById(id);
-
-                // console.log(Number(granuleData.data[id].vicinity_radius) * Number(data["greatCircleDistanceFactor"]));
-                // console.log(Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"])
 
                 const polygon_style = new Style({
                     stroke : new Stroke({
@@ -177,7 +175,6 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
                 const circle = new Circle([data["location"]["y"], data["location"]["x"]], Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"]).transform('EPSG:4326', 'EPSG:3857')
 
                 if (feature) {
-                    // console.log(circle)
                     feature.setGeometry(polygon);
                 } else {
                     var new_feature = new Feature({
@@ -200,7 +197,6 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
         const alpha = "33";
 
         const agents = Object.keys(algo_data.data.position_granules);
-        // console.log("GRANULE_DATA", granuleData.data);
 
         for (let i = 0; i < agents.length; i++) {
             const agent = agents[i];
@@ -401,6 +397,30 @@ function ws_observe(key, next, setPlaneData, setWs) {
 
             if (result === undefined){
                 result = {};
+            }
+
+            if (event_json["type"] == "MsgLSObserverSync") {
+                for (let i = 0; i < event_json["users"].length; i++) {
+                    const user = event_json["users"][i];
+                    const alias = user["alias"][0];
+                    const len_user_granularities = user["granularities"].length;
+
+                    let vicinity_granules_list = []
+                    for (let j = 0; j < len_user_granularities; j++) {
+                        const vicinity_granules = user["granularities"][j]["encryptedVicinity"]["granules"];
+                        vicinity_granules_list.push(vicinity_granules);
+                    }
+
+                    result[alias] = {
+                        now: {
+                            level: user["level"],
+                            position_granule: user["granularities"][len_user_granularities - 1]["encryptedLocation"]["granule"],
+                            vicinity_granules: vicinity_granules_list,
+                            vicinity_radius: user["vicinityShape"]["radius"]
+                        },
+                        prev: {}
+                    }
+                }
             }
 
             if (event_json["type"] == "MsgLSObserverIncUpd") {
