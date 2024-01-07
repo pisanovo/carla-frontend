@@ -9,6 +9,7 @@ import {circular} from 'ol/geom/Polygon';
 import useSWRSubscription from "swr/subscription";
 import Map from "ol/Map";
 import {asArray} from "ol/color";
+import {SWRConfiguration} from "swr";
 
 
 export function MapView({ map, parent, carla_settings, position_data, algo_data, layers }: IMapView) {
@@ -20,6 +21,7 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
         const [vicinityGranulesLayer, setVicinityGranulesLayer] = useState<VectorLayer<VectorSource>>();
         const [vicinityShapeLayer, setVicinityShapeLayer] = useState<VectorLayer<VectorSource>>();
         const [maxGridLevel, setMaxGridLevel] = useState(0);
+        const [ws, setWs] = useState<WebSocket>();
 
         useEffect(() => {
 
@@ -94,73 +96,9 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
     const granuleData = useSWRSubscription(
             'ws://'+algo_data.settings.location_server_ip+":"+algo_data.settings.location_server_port+"/observe",
             (key, { next }) => {
-                const socket = new WebSocket(key)
-                socket.addEventListener('message', (event) => next(
-                    null,
-                    prev => {
-                            var event_json = JSON.parse(event.data);
-                            let result = structuredClone(prev);
-                            if (event_json["planeData"] !== undefined) {
-                                    setPlaneData({
-                                            "lon_min": event_json["planeData"]["lonMin"],
-                                            "lon_max": event_json["planeData"]["lonMax"],
-                                            "lat_min": event_json["planeData"]["latMin"],
-                                            "lat_max": event_json["planeData"]["latMax"]
-                                    })
-                                    return result;
-                            }
-
-                            if (result === undefined){
-                                result = {};
-                            }
-
-                            if (event_json["type"] == "MsgLSObserverIncUpd") {
-                                const alias = event_json["alias"][0]
-
-                                let remaining_vicinity_granules = [];
-
-                                if (result[alias] !== undefined) {
-                                    remaining_vicinity_granules = result[alias].now.vicinity_granules.slice(0, event_json["level"]+1);
-                                }
-
-                                if (event_json["level"] == remaining_vicinity_granules.length) {
-                                    remaining_vicinity_granules.push(event_json["vicinityInsert"]["granules"]);
-                                } else {
-                                    const level_vicinity_granules = remaining_vicinity_granules[event_json["level"]];
-                                    const remaining_granules = level_vicinity_granules.filter((el) => !(event_json["vicinityDelete"]["granules"].includes(el)));
-                                    remaining_vicinity_granules[event_json["level"]] = [...remaining_granules, ...event_json["vicinityInsert"]["granules"]];
-                                }
-
-                                if (result[alias] === undefined) {
-                                    result[alias] = {
-                                        now: {
-                                            level: event_json["level"],
-                                            position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules,
-                                            vicinity_radius: event_json["vicinityShape"]["radius"]
-                                        },
-                                        prev: {}
-                                    }
-
-                                } else {
-                                    result[alias] = {
-                                        now: {
-                                            level: event_json["level"],
-                                            position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules,
-                                            vicinity_radius: event_json["vicinityShape"]["radius"]
-                                        },
-                                        prev: result[alias].now
-                                    }
-                                }
-                                return result;
-                            }
-
-                            return result;
-                    })
-                )
-                return () => socket.close()
-        })
+                    ws_observe(key, next, setPlaneData, setWs);
+                return () => ws?.close();
+            })
 
     useEffect(() => {
         if (granuleData.data !== undefined) {
@@ -436,4 +374,78 @@ function get_granule_features(plane_data, granule_ids, level, id, style, scale=1
         features.push(granuleFeature);
     }
     return features;
+}
+
+function ws_observe(key, next, setPlaneData, setWs) {
+    let socket = new WebSocket(key)
+    setWs(socket);
+    socket.onclose = () => {
+        setTimeout(() => {
+            ws_observe(key, next, setPlaneData, setWs)
+        }, 4000);
+    }
+    socket.addEventListener('message', (event) => next(
+        null,
+        prev => {
+            var event_json = JSON.parse(event.data);
+            let result = structuredClone(prev);
+            if (event_json["planeData"] !== undefined) {
+                setPlaneData({
+                    "lon_min": event_json["planeData"]["lonMin"],
+                    "lon_max": event_json["planeData"]["lonMax"],
+                    "lat_min": event_json["planeData"]["latMin"],
+                    "lat_max": event_json["planeData"]["latMax"]
+                })
+                return result;
+            }
+
+            if (result === undefined){
+                result = {};
+            }
+
+            if (event_json["type"] == "MsgLSObserverIncUpd") {
+                const alias = event_json["alias"][0]
+
+                let remaining_vicinity_granules = [];
+
+                if (result[alias] !== undefined) {
+                    remaining_vicinity_granules = result[alias].now.vicinity_granules.slice(0, event_json["level"]+1);
+                }
+
+                if (event_json["level"] == remaining_vicinity_granules.length) {
+                    remaining_vicinity_granules.push(event_json["vicinityInsert"]["granules"]);
+                } else {
+                    const level_vicinity_granules = remaining_vicinity_granules[event_json["level"]];
+                    const remaining_granules = level_vicinity_granules.filter((el) => !(event_json["vicinityDelete"]["granules"].includes(el)));
+                    remaining_vicinity_granules[event_json["level"]] = [...remaining_granules, ...event_json["vicinityInsert"]["granules"]];
+                }
+
+                if (result[alias] === undefined) {
+                    result[alias] = {
+                        now: {
+                            level: event_json["level"],
+                            position_granule: event_json["newLocation"]["granule"],
+                            vicinity_granules: remaining_vicinity_granules,
+                            vicinity_radius: event_json["vicinityShape"]["radius"]
+                        },
+                        prev: {}
+                    }
+
+                } else {
+                    result[alias] = {
+                        now: {
+                            level: event_json["level"],
+                            position_granule: event_json["newLocation"]["granule"],
+                            vicinity_granules: remaining_vicinity_granules,
+                            vicinity_radius: event_json["vicinityShape"]["radius"]
+                        },
+                        prev: result[alias].now
+                    }
+                }
+                return result;
+            }
+
+            return result;
+        })
+    )
 }

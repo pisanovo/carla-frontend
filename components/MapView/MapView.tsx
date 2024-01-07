@@ -41,6 +41,8 @@ export function MapView(props: any) {
     const [vehicleFeatures, setVehicleFeatures] = useState<Feature[]>([]);
     const [activeVehicles, setActiveVehicles] = useState({});
     const [positionData, setPositionData] = useState([]);
+    const [positionWs, setPositionWs] = useState<WebSocket>();
+    const [agentsWs, setAgentsWs] = useState<WebSocket>();
     const mapRef = useRef<Map>();
 
     useEffect(() => {
@@ -122,30 +124,8 @@ export function MapView(props: any) {
     const carlaAgentData= useSWRSubscription(
         'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/position-stream',
         (key, { next }) => {
-        const socket = new WebSocket(key)
-        socket.addEventListener('message', (event) => next(
-            null,
-            prev => {
-                var event_json = JSON.parse(event.data);
-                var result = [...event_json["data"]]
-                if (prev !== undefined) {
-                    for (let i = 0; i < prev.length; i++) {
-                        var found = false;
-                        for (let j = 0; j < result.length; j++) {
-                            if (prev[i]["id"] == result[j]["id"]) {
-                                found = true;
-                            }
-                        }
-                        if (!found) {
-                            result.push(prev[i]);
-                        }
-                    }
-                }
-
-                return result
-            })
-        )
-        return () => socket.close()
+        ws_position(key, next, setPositionWs);
+        return () => positionWs?.close()
     })
 
     useEffect(() => {
@@ -213,17 +193,8 @@ export function MapView(props: any) {
     useSWRSubscription(
         'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/agents',
         (key, { next }) => {
-            const socket = new WebSocket(key)
-            socket.addEventListener('message', (event) => next(
-                null,
-                prev => {
-                    var event_json = JSON.parse(event.data);
-                    setActiveVehicles(s => ({...s, agent_ids: event_json["data"]}));
-                    props.algo.locationCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
-                    props.algo.temporalCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
-                })
-            )
-            return () => socket.close()
+            ws_agents(key, next, setAgentsWs, setActiveVehicles, props);
+            return () => agentsWs?.close()
     })
 
     const parent = {
@@ -266,4 +237,53 @@ export function MapView(props: any) {
 
 }
 
+function ws_position(key, next, setPositionWs) {
+    const socket = new WebSocket(key)
+    setPositionWs(socket);
+    socket.onclose = () => {
+        setTimeout(() => {
+            ws_position(key, next, setPositionWs);
+        }, 4000);
+    }
+    socket.addEventListener('message', (event) => next(
+        null,
+        prev => {
+            var event_json = JSON.parse(event.data);
+            var result = [...event_json["data"]]
+            if (prev !== undefined) {
+                for (let i = 0; i < prev.length; i++) {
+                    var found = false;
+                    for (let j = 0; j < result.length; j++) {
+                        if (prev[i]["id"] == result[j]["id"]) {
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        result.push(prev[i]);
+                    }
+                }
+            }
 
+            return result
+        })
+    )
+}
+
+function ws_agents(key, next, setAgentsWs, setActiveVehicles, props) {
+    const socket = new WebSocket(key);
+    setAgentsWs(socket);
+    socket.onclose = () => {
+        setTimeout(() => {
+            ws_agents(key, next, setAgentsWs, setActiveVehicles, props);
+        }, 4000);
+    }
+    socket.addEventListener('message', (event) => next(
+        null,
+        prev => {
+            var event_json = JSON.parse(event.data);
+            setActiveVehicles(s => ({...s, agent_ids: event_json["data"]}));
+            props.algo.locationCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
+            props.algo.temporalCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
+        })
+    )
+}
