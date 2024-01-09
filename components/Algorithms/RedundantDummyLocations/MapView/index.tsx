@@ -50,7 +50,7 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
     useEffect(() => {
         // Fetch logs continously
         const logsInterval = setInterval(() => {
-            fetch("http://localhost:5001/visualization_info")
+            fetch("http://localhost:5002/visualization_info")
             .then((res) => res.json())
             .then((res: VisualizationInfoResponse) => setLogs(res.logs))
         }, REFRESH_INTERVAL);
