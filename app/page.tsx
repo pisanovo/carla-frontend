@@ -29,6 +29,7 @@ import {DataTab as LocationCloakingDataTab} from "@/components/Algorithms/Locati
 import {MapBar as LocationCloakingMapBar} from "@/components/Algorithms/LocationCloaking/MapBar/MapBar";
 import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from '@/components/Algorithms/RedundantDummyLocations/config';
+import { RedundantDummLocationsAlgorithmData } from '@/components/Algorithms/RedundantDummyLocations/types';
 
 type CarlaSettings = {
     ip: string;
@@ -46,6 +47,13 @@ export default function HomePage() {
     const [temporalCloakingSettings, setTemporalCloakingSettings] = useState({});
     const [temporalCloakingData, setTemporalCloakingData] = useState({});
     const [showVehicleLabels, setShowVehicleLabels] = useState(false);
+    const [redundantDummyLocationsData, setRedundantDummyLocationsData] =
+        useState<RedundantDummLocationsAlgorithmData["data"]>({
+            locationServerLogs: [],
+            showLocationServerLogs: false,
+            userMovementStorageDump: [],
+            showUserMovementStorageDump: false,
+        })
 
     const algorithmData  = {
         locationCloakingSettings: {
@@ -60,7 +68,10 @@ export default function HomePage() {
             data: temporalCloakingData,
             setData: setTemporalCloakingData
         },
-        redundantDummyLocationsSettings: {}
+        redundantDummyLocationsSettings: {
+            data: redundantDummyLocationsData,
+            setData: setRedundantDummyLocationsData,
+        }
     };
 
   return (
@@ -95,7 +106,6 @@ export default function HomePage() {
                                     {
                                         algorithm == REDUNDANT_DUMMY_LOCATIONS_ID &&
                                             <RedundantDummyLocationsDataTab
-                                                carla_settings={carlaSettings}
                                                 algo_data={algorithmData.redundantDummyLocationsSettings} />
                                     }
 

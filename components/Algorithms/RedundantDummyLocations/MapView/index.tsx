@@ -10,12 +10,13 @@ import useSWRSubscription from "swr/subscription";
 import Map from "ol/Map";
 import {asArray} from "ol/color";
 import { Layer } from "ol/layer";
+import { RedundantDummLocationsAlgorithmData } from "../types";
 
 
 type RedundantDummiesMapViewProps = {
     map: any,
     carla_settings: any,
-    algo_data: any,
+    algo_data: RedundantDummLocationsAlgorithmData,
     /** Handler that is called whenever a layer should be added to the map */
     onAddLayer: (layer: Layer) => void,
     /** Handler that is called whenever a layer should be removed from the map */
@@ -38,29 +39,6 @@ type VisualizationInfoResponse = {
 }
 
 export default function MapView({ map, carla_settings, algo_data, onAddLayer, onRemoveLayer}: RedundantDummiesMapViewProps) {
-    /** Refresh interval for the polling of logs */
-    const REFRESH_INTERVAL = 5000; // ms
-    /** Data points like the location based service sees them*/
-    const [logs, setLogs] = useState<LogItem[]>([])
-
-    // Fetch logs
-
-    // Fetch the logs from the location server, i.e., what 
-    // the location based service sees.
-    useEffect(() => {
-        // Fetch logs continously
-        const logsInterval = setInterval(() => {
-            fetch("http://localhost:5002/visualization_info")
-            .then((res) => res.json())
-            .then((res: VisualizationInfoResponse) => setLogs(res.logs))
-        }, REFRESH_INTERVAL);
-
-        // Clear interval when component is removed
-        return () => {
-            clearInterval(logsInterval)
-        }
-    }, [REFRESH_INTERVAL, setLogs]);
-
     // Create and add a layer for what the location based service can see
     const baseStyle = useMemo(() => {
         return new Style({
@@ -71,25 +49,47 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
             }),
         })
     }, []);
+    /** Layer that visualizes the logs from the location based service */
     const locationBasedServiceLayer = useMemo(() =>
+        new VectorLayer({
+            source: new VectorSource({
+                    features: []
+            }),
+            zIndex: 3,
+            style() {
+                return [baseStyle]
+            }
+        }), []);
+    
+    /** Layer that visualizes a dump of the user movement storage */
+    const userMovementStorageDumpLayer = useMemo(() =>
         new VectorLayer({
             source: new VectorSource({
                     features: []
             }),
             zIndex: 2,
             style() {
+                // NOTE: This is the default style. Features might have a custom style, that overwrites the default style
                 return [baseStyle]
             }
-        }), []);
+    }), []);
 
     // Make sure layer is present on map while this component lives
     useEffect(() => {
         // Initially, add the layer
-        onAddLayer(locationBasedServiceLayer);
+        if (algo_data.data.showUserMovementStorageDump) {
+            onAddLayer(userMovementStorageDumpLayer);
+        }
+        if (algo_data.data.showLocationServerLogs) {
+            onAddLayer(locationBasedServiceLayer);
+        }
 
-        // Finally, remove it
-        return () => onRemoveLayer(locationBasedServiceLayer)
-    }, [onAddLayer, onRemoveLayer, locationBasedServiceLayer]);
+        // On destruction, remove it
+        return () => {
+            onRemoveLayer(userMovementStorageDumpLayer)
+            onRemoveLayer(locationBasedServiceLayer)
+        }
+    }, [onAddLayer, onRemoveLayer, userMovementStorageDumpLayer, locationBasedServiceLayer, algo_data.data]);
 
 
     /** Creates a point feature from x and y coordinates */
@@ -107,10 +107,44 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
     // Add points from logs
     useEffect(() => {
         const newSource = new VectorSource({
-            features: logs.map((logItem) => createPoint(logItem.location.x, logItem.location.y))
+            features: algo_data.data.locationServerLogs.map((logItem) => createPoint(logItem.location.x, logItem.location.y))
         });
                 
         locationBasedServiceLayer.setSource(newSource);
-    }, [logs, locationBasedServiceLayer])
+    }, [algo_data.data.locationServerLogs, locationBasedServiceLayer])
+
+    // Add points from dump
+    useEffect(() => {
+        const newSource = new VectorSource({
+            features: algo_data.data.userMovementStorageDump
+                // Iterate over each movements node list individually so that we can assign different colors to them
+                .map((userMovement) => userMovement.Node_List)
+                .map((nodeList) => {
+                    // For each nodeList, choose a random color and visualize nodes in that color
+                    const randomColor = [
+                        Math.floor(Math.random() * 256),
+                        Math.floor(Math.random() * 256),
+                        Math.floor(Math.random() * 256),
+                    0.8]
+                    const randomImage = new Circle({
+                        fill: new Fill({color: randomColor}),
+                        stroke: new Stroke({color: [0,0,0,1]}),
+                        radius: 3
+                    })
+                    return nodeList.map((node) => {
+                        // Create a point for each node, with a custom style in the randomColor
+                        const newPoint = createPoint(node.x, node.y)
+                        const randomColorStyle = baseStyle.clone()
+                        randomColorStyle.setImage(randomImage)
+                        newPoint.setStyle(randomColorStyle)
+                        return newPoint
+                    })
+                })
+                // Flatten array to get one list of nodes
+                .reduce((all, current) => all.concat(...current), [])
+        });
+                
+        userMovementStorageDumpLayer.setSource(newSource);
+    }, [algo_data.data.userMovementStorageDump, userMovementStorageDumpLayer])
     return <></>
 }

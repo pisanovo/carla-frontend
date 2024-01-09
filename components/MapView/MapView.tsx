@@ -35,7 +35,6 @@ export interface IMapView {
 }
 
 export function MapView(props: any) {
-
     const [map, setMap] = useState<Map>();
     const [locationCloakingLayerGroup, setLocationCloakingLayerGroup] = useState<LayerGroup>();
     const [temporalCloakingLayerGroup, setTemporalCloakingLayerGroup] = useState<LayerGroup>();
@@ -265,7 +264,7 @@ export function MapView(props: any) {
                     <RedundantDummyLocationsMapView
                         map={map}
                         carla_settings={props.carlaSettings}
-                        algo_data={props.algo.redundantDummiesSettings}
+                        algo_data={props.algo.redundantDummyLocationsSettings}
                         onAddLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.push(layer)}
                         onRemoveLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.remove(layer)}
                     />
