@@ -55,7 +55,7 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
             source: new VectorSource({
                     features: []
             }),
-            zIndex: 3,
+            zIndex: 4,
             style() {
                 return [baseStyle]
             }
@@ -73,6 +73,18 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
                 return [baseStyle]
             }
     }), []);
+    /** Layer that visualizes a dump of the dummy storage */
+    const dummyStorageDumpLayer = useMemo(() =>
+    new VectorLayer({
+        source: new VectorSource({
+                features: []
+        }),
+        zIndex: 3,
+        style() {
+            // NOTE: This is the default style. Features might have a custom style, that overwrites the default style
+            return [baseStyle]
+        }
+    }), []);
 
     // Make sure layer is present on map while this component lives
     useEffect(() => {
@@ -83,13 +95,17 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
         if (algo_data.data.showLocationServerLogs) {
             onAddLayer(locationBasedServiceLayer);
         }
+        if (algo_data.data.showDummyStorageDump) {
+            onAddLayer(dummyStorageDumpLayer);
+        }
 
         // On destruction, remove it
         return () => {
             onRemoveLayer(userMovementStorageDumpLayer)
             onRemoveLayer(locationBasedServiceLayer)
+            onRemoveLayer(dummyStorageDumpLayer)
         }
-    }, [onAddLayer, onRemoveLayer, userMovementStorageDumpLayer, locationBasedServiceLayer, algo_data.data]);
+    }, [onAddLayer, onRemoveLayer, userMovementStorageDumpLayer, locationBasedServiceLayer, dummyStorageDumpLayer, algo_data.data]);
 
 
     /** Creates a point feature from x and y coordinates */
@@ -113,7 +129,7 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
         locationBasedServiceLayer.setSource(newSource);
     }, [algo_data.data.locationServerLogs, locationBasedServiceLayer])
 
-    // Add points from dump
+    // Add points from user movement dump
     useEffect(() => {
         const newSource = new VectorSource({
             features: algo_data.data.userMovementStorageDump
@@ -146,5 +162,39 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
                 
         userMovementStorageDumpLayer.setSource(newSource);
     }, [algo_data.data.userMovementStorageDump, userMovementStorageDumpLayer])
+
+    // Add points from dummy dump
+    useEffect(() => {
+        const newSource = new VectorSource({
+            features: algo_data.data.dummyStorageDump
+                // Iterate over each dummies node list individually so that we can assign different colors to them
+                .map((dummy) => dummy.Node_List)
+                .map((nodeList) => {
+                    // For each nodeList, choose a random color and visualize nodes in that color
+                    const randomColor = [
+                        Math.floor(Math.random() * 256),
+                        Math.floor(Math.random() * 256),
+                        Math.floor(Math.random() * 256),
+                    0.8]
+                    const randomImage = new Circle({
+                        fill: new Fill({color: randomColor}),
+                        stroke: new Stroke({color: [0,0,0,1]}),
+                        radius: 3
+                    })
+                    return nodeList.map((node) => {
+                        // Create a point for each node, with a custom style in the randomColor
+                        const newPoint = createPoint(node.x, node.y)
+                        const randomColorStyle = baseStyle.clone()
+                        randomColorStyle.setImage(randomImage)
+                        newPoint.setStyle(randomColorStyle)
+                        return newPoint
+                    })
+                })
+                // Flatten array to get one list of nodes
+                .reduce((all, current) => all.concat(...current), [])
+        });
+                
+        dummyStorageDumpLayer.setSource(newSource);
+    }, [algo_data.data.dummyStorageDump, dummyStorageDumpLayer])
     return <></>
 }

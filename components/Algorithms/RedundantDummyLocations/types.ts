@@ -24,6 +24,16 @@ export type UserMovement = {
    Node_List: LocationNode[]
 }
 
+/** A single element of the dummy storage */
+export type Dummy = {
+    D_No: string,
+    Birth_Date: number, // Seconds since 1970
+    No_of_Nodes: number,
+    Used_Freq: number,
+    Node_List: LocationNode[]
+    Curr_Node: number,
+}
+
 export type VisualizationInfoResponse = {
     logs: LogItem[]
 }
@@ -38,6 +48,10 @@ export type RedundantDummLocationsAlgorithmData = {
         userMovementStorageDump: UserMovement[],
         /** Is true if user movement storage dump should be visualized on the map */
         showUserMovementStorageDump: boolean,
+        /** Dump of the dummy storage */
+        dummyStorageDump: Dummy[],
+        /** Is true if dummy storage dump should be visualized on the map */
+        showDummyStorageDump: boolean,
     },
     setData: (newData: RedundantDummLocationsAlgorithmData['data']) => void
 }

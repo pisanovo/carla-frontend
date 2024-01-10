@@ -53,6 +53,8 @@ export default function HomePage() {
             showLocationServerLogs: false,
             userMovementStorageDump: [],
             showUserMovementStorageDump: false,
+            dummyStorageDump: [],
+            showDummyStorageDump: false,
         })
 
     const algorithmData  = {
