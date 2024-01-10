@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react'
-import { Button, Switch, Input } from "@mantine/core";
+import { Button, Switch, Input, SimpleGrid } from "@mantine/core";
 import { VisualizationInfoResponse, RedundantDummLocationsAlgorithmData } from "../types"
 
 
@@ -10,8 +10,12 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
     const REFRESH_INTERVAL = 1000; // ms
     /** Request response text, as a simple user feedback for performing requests via the buttons */
     const [responseMessage, setResponseMessage] = useState<string>("")
-    /** Length of dummies */
+    /** Min Length of generated dummies */
+    const [dummyMinNodeCount, setDummyMinNodeCount] = useState<number>(5)
+    /** Max Length of generated dummies */
     const [dummyMaxNodeCount, setDummyMaxNodeCount] = useState<number>(10)
+    /** Neighbouring range, i.e. threshold for how far away nodes are still considered neighbours */
+    const [dummyNBRange, setDummyNBRange] = useState<number>(0.001) // 111 meters
 
     // Fetch the logs from the location server, i.e., what 
     // the location based service sees.
@@ -67,7 +71,9 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
         fetch(
             "http://localhost:5001/dummy?" +
             new URLSearchParams({
-                max_node_count: `${dummyMaxNodeCount}`
+                min_node_count: `${dummyMinNodeCount}`,
+                max_node_count: `${dummyMaxNodeCount}`,
+                nb_range: `${dummyNBRange}`
             }),
             {method: "POST"}
             )
@@ -115,13 +121,19 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
         <pre>
             {responseMessage}
         </pre>
-        <Button onClick={handleAttachClient} style={{marginRight: 4}}>Attach Client</Button>
-        <Button onClick={handleGenerateDummy} style={{marginRight: 4}}>Generate Dummy</Button>
-        <Button onClick={handleReset}>Reset</Button>
-        <div>
+        <SimpleGrid cols={2}>
+            <Button onClick={handleAttachClient} style={{marginRight: 4}}>Attach Client</Button>
+            <Button onClick={handleReset}>Reset</Button>
+            <label>Min number of nodes per dummy:</label>
+            <Input style={{display: "inline-block", marginLeft: 4}} type="number" value={dummyMinNodeCount} min={1} max={dummyMaxNodeCount} onChange={(event) => setDummyMinNodeCount(event.currentTarget.valueAsNumber) } />
             <label>Max number of nodes per dummy:</label>
-            <Input style={{display: "inline-block", marginLeft: 4}} type="number" value={dummyMaxNodeCount} min={0} onChange={(event) => setDummyMaxNodeCount(event.currentTarget.valueAsNumber) } />
-        </div>
+            <Input style={{display: "inline-block", marginLeft: 4}} type="number" value={dummyMaxNodeCount} min={dummyMinNodeCount} onChange={(event) => setDummyMaxNodeCount(event.currentTarget.valueAsNumber) } />
+            <label>NB Range, i.e., maximum distance between neighbouring nodes:</label>
+            <Input style={{display: "inline-block", marginLeft: 4}} type="number" value={dummyNBRange} min={0} onChange={(event) => setDummyNBRange(event.currentTarget.valueAsNumber) } />
+            <label>Trigger generation of 1 dummy on echo agent:</label>
+            <Button onClick={handleGenerateDummy} style={{marginRight: 4}}>Generate Dummy</Button>
+        </SimpleGrid>
+
         <h3>
             What the location server sees:
             <Switch
