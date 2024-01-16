@@ -15,7 +15,7 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
     /** Max Length of generated dummies */
     const [dummyMaxNodeCount, setDummyMaxNodeCount] = useState<number>(10)
     /** Neighbouring range, i.e. threshold for how far away nodes are still considered neighbours */
-    const [dummyNBRange, setDummyNBRange] = useState<number>(0.001) // 111 meters
+    const [dummyNBRange, setDummyNBRange] = useState<number>(0.000008) // Found through trial and error. TODO: As soon as we have a spacial index, use a unit instead of a magic number
 
     // Fetch the logs from the location server, i.e., what 
     // the location based service sees.
