@@ -8,7 +8,7 @@ import {transform} from 'ol/proj.js';
 import 'ol/ol.css';
 import {Dispatch, MutableRefObject, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import {Vector as VectorSource} from 'ol/source.js';
-import {Group, Vector as VectorLayer} from 'ol/layer.js';
+import {Group, Layer, Vector as VectorLayer} from 'ol/layer.js';
 import useSWRSubscription from 'swr/subscription'
 import {Collection, Feature} from "ol";
 import {Point, Polygon} from "ol/geom";
@@ -18,6 +18,8 @@ import LayerGroup from "ol/layer/Group";
 import BaseLayer from "ol/layer/Base";
 import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
+import { REDUNDANT_DUMMY_LOCATIONS_ID } from '../Algorithms/RedundantDummyLocations/config';
+import RedundantDummyLocationsMapView from '@/components/Algorithms/RedundantDummyLocations/MapView'
 
 
 export interface IMapView {
@@ -33,10 +35,10 @@ export interface IMapView {
 }
 
 export function MapView(props: any) {
-
     const [map, setMap] = useState<Map>();
     const [locationCloakingLayerGroup, setLocationCloakingLayerGroup] = useState<LayerGroup>();
     const [temporalCloakingLayerGroup, setTemporalCloakingLayerGroup] = useState<LayerGroup>();
+    const [redundantDummiesLayerGroup, setRedundantDummiesLayerGroup] = useState<LayerGroup>();
     const [vehicleLayer, setVehicleLayer] = useState<VectorLayer<VectorSource>>();
     const [vehicleFeatures, setVehicleFeatures] = useState<Feature[]>([]);
     const [activeVehicles, setActiveVehicles] = useState({});
@@ -96,6 +98,7 @@ export function MapView(props: any) {
 
         const initialLocationCloakingLayerGroup = new LayerGroup({layers: []});
         const initialTemporalCloakingLayerGroup = new LayerGroup({layers: []});
+        const initialRedundantDummiesLayerGroup = new LayerGroup({layers: []});
 
         const init_map = new Map({
             target: mapRef.current as unknown as HTMLElement,
@@ -105,7 +108,8 @@ export function MapView(props: any) {
                 }),
                 initialVehicleLayer,
                 initialLocationCloakingLayerGroup,
-                initialTemporalCloakingLayerGroup
+                initialTemporalCloakingLayerGroup,
+                initialRedundantDummiesLayerGroup,
             ],
             view: new View({
                 center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
@@ -117,6 +121,7 @@ export function MapView(props: any) {
         setVehicleLayer(initialVehicleLayer);
         setLocationCloakingLayerGroup(initialLocationCloakingLayerGroup);
         setTemporalCloakingLayerGroup(initialTemporalCloakingLayerGroup);
+        setRedundantDummiesLayerGroup(initialRedundantDummiesLayerGroup);
     }, []);
 
     const carlaAgentData= useSWRSubscription(
@@ -208,6 +213,9 @@ export function MapView(props: any) {
         if (props.algorithm !== "Temporal cloaking []") {
             temporalCloakingLayerGroup?.getLayers().clear();
         }
+        if (props.algorithm !== REDUNDANT_DUMMY_LOCATIONS_ID) {
+            redundantDummiesLayerGroup?.getLayers().clear();
+        }
     }, [props.algorithm]);
 
     useSWRSubscription(
@@ -249,6 +257,16 @@ export function MapView(props: any) {
                         position_data={positionData}
                         algo_data={props.algo.locationCloakingSettings}
                         layers={locationCloakingLayerGroup.getLayers()}
+                    />
+                }
+                {
+                    props.algorithm === REDUNDANT_DUMMY_LOCATIONS_ID &&
+                    <RedundantDummyLocationsMapView
+                        map={map}
+                        carla_settings={props.carlaSettings}
+                        algo_data={props.algo.redundantDummyLocationsSettings}
+                        onAddLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.push(layer)}
+                        onRemoveLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.remove(layer)}
                     />
                 }
                 {props.algorithm === "Temporal cloaking []" &&
