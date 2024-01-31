@@ -1,11 +1,15 @@
-import React, {useCallback, useEffect, useState} from 'react'
+import React, {useCallback, useContext, useEffect, useState} from 'react'
 import { Button, Switch, Input, SimpleGrid } from "@mantine/core";
 import { VisualizationInfoResponse, RedundantDummLocationsAlgorithmData } from "../types"
+import { AlgorithmDataContext } from '@/contexts/AlgorithmDataContext';
 
 
+export default function () {
+    const {
+        redundantDummyLocationsData,
+        setRedundantDummyLocationsData,
+    } = useContext(AlgorithmDataContext);
 
-
-export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorithmData}) {
     /** Refresh interval for the polling of logs */
     const REFRESH_INTERVAL = 1000; // ms
     /** Request response text, as a simple user feedback for performing requests via the buttons */
@@ -25,9 +29,9 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
             fetch("http://localhost:5002/visualization_info")
             .then((res) => res.json())
             .then((res: VisualizationInfoResponse) => {
-                const newData = algo_data.data
+                const newData = redundantDummyLocationsData
                 newData.locationServerLogs = res.logs
-                algo_data.setData(newData)
+                setRedundantDummyLocationsData(newData)
             })
         }, REFRESH_INTERVAL);
 
@@ -35,29 +39,29 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
         return () => {
             clearInterval(logsInterval)
         }
-    }, [REFRESH_INTERVAL, algo_data.data]);
+    }, [REFRESH_INTERVAL, redundantDummyLocationsData]);
 
     const handleDumpUserMovementStorage = useCallback(() => {
         fetch("http://localhost:5001/user_movement_storage")
             .then((res) => res.json())
             .then((dump) => {
                 // Pretty print dump
-                const newData = algo_data.data
+                const newData = redundantDummyLocationsData
                 newData.userMovementStorageDump = dump
-                algo_data.setData(newData)                
+                setRedundantDummyLocationsData(newData)                
             })
-    }, [algo_data.data])
+    }, [redundantDummyLocationsData])
 
     const handleDumpDummyStorage = useCallback(() => {
         fetch("http://localhost:5001/dummy_storage")
             .then((res) => res.json())
             .then((dump) => {
                 // Pretty print dump
-                const newData = algo_data.data
+                const newData = redundantDummyLocationsData
                 newData.dummyStorageDump = dump
-                algo_data.setData(newData)                
+                setRedundantDummyLocationsData(newData)                
             })
-    }, [algo_data.data])
+    }, [redundantDummyLocationsData])
 
     const handleAttachClient = useCallback(() => {
         // Call client to attach one car
@@ -93,27 +97,27 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
     const handleToggleLocationServerLogsVisibility = useCallback((event: any) => {
         const newVisibility = event.currentTarget.checked
         const newData: RedundantDummLocationsAlgorithmData["data"] = {
-            ...algo_data.data,
+            ...redundantDummyLocationsData,
             showLocationServerLogs: newVisibility
         }
-        algo_data.setData(newData)
-    }, [algo_data.data, algo_data.setData])
+        setRedundantDummyLocationsData(newData)
+    }, [redundantDummyLocationsData, setRedundantDummyLocationsData])
     const handleToggleUserMovementStorageDumpVisibility = useCallback((event: any) => {
         const newVisibility = event.currentTarget.checked
         const newData: RedundantDummLocationsAlgorithmData["data"] = {
-            ...algo_data.data,
+            ...redundantDummyLocationsData,
             showUserMovementStorageDump: newVisibility
         }
-        algo_data.setData(newData)
-    }, [algo_data.data, algo_data.setData])
+        setRedundantDummyLocationsData(newData)
+    }, [redundantDummyLocationsData, setRedundantDummyLocationsData])
     const handleToggleDummyStorageDumpVisibility = useCallback((event: any) => {
         const newVisibility = event.currentTarget.checked
         const newData: RedundantDummLocationsAlgorithmData["data"] = {
-            ...algo_data.data,
+            ...redundantDummyLocationsData,
             showDummyStorageDump: newVisibility
         }
-        algo_data.setData(newData)
-    }, [algo_data.data, algo_data.setData])
+        setRedundantDummyLocationsData(newData)
+    }, [redundantDummyLocationsData, setRedundantDummyLocationsData])
 
     return (
     <div style={{overflowY: 'auto', maxHeight: "70vh"}}>
@@ -138,41 +142,41 @@ export default function ({algo_data}: {algo_data: RedundantDummLocationsAlgorith
             What the location server sees:
             <Switch
                 style={{display: "inline-block"}}
-                checked={algo_data.data.showLocationServerLogs}
+                checked={redundantDummyLocationsData.showLocationServerLogs}
                 onChange={handleToggleLocationServerLogsVisibility} />
         </h3>
         <pre style={{maxWidth: '80%', maxHeight: '200px', overflowX: 'auto', overflowY: 'auto' }}>
             [
                 {'\n'}
-                {algo_data.data.locationServerLogs.map((log) => `\t${JSON.stringify(log)},\n`)}
+                {redundantDummyLocationsData.locationServerLogs.map((log) => `\t${JSON.stringify(log)},\n`)}
             ]
         </pre>
         <h3>
             User Movement Storage
             <Switch
                 style={{display: "inline-block"}}
-                checked={algo_data.data.showUserMovementStorageDump}
+                checked={redundantDummyLocationsData.showUserMovementStorageDump}
                 onChange={handleToggleUserMovementStorageDumpVisibility} />
         </h3>
         <Button onClick={handleDumpUserMovementStorage}>Fetch Dump</Button>
         <pre style={{maxWidth: '80%', maxHeight: '200px', overflowX: 'auto', overflowY: 'auto' }}>
             {
                 // Pritty print
-                JSON.stringify(algo_data.data.userMovementStorageDump, null, 2)
+                JSON.stringify(redundantDummyLocationsData.userMovementStorageDump, null, 2)
             }
         </pre>
         <h3>
             Dummy Storage
             <Switch
                 style={{display: "inline-block"}}
-                checked={algo_data.data.showDummyStorageDump}
+                checked={redundantDummyLocationsData.showDummyStorageDump}
                 onChange={handleToggleDummyStorageDumpVisibility} />
         </h3>
         <Button onClick={handleDumpDummyStorage}>Fetch Dump</Button>
         <pre style={{maxWidth: '80%', maxHeight: '200px', overflowX: 'auto', overflowY: 'auto' }}>
             {
                 // Pritty print
-                JSON.stringify(algo_data.data.dummyStorageDump, null, 2)
+                JSON.stringify(redundantDummyLocationsData.dummyStorageDump, null, 2)
             }
         </pre>
     </div>

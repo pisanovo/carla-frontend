@@ -1,44 +1,25 @@
-import React, {useEffect, useState, useMemo} from "react";
-import {IMapView} from "@/components/MapView/MapView";
-import {Geometry, Polygon, Point} from "ol/geom";
+import React, {useContext, useEffect, useMemo} from "react";
 import {Feature} from "ol";
 import VectorSource from "ol/source/Vector";
 import VectorLayer from "ol/layer/Vector";
 import {Fill, Stroke, Style, Circle} from "ol/style";
-import {circular} from 'ol/geom/Polygon';
-import useSWRSubscription from "swr/subscription";
-import Map from "ol/Map";
-import {asArray} from "ol/color";
 import { Layer } from "ol/layer";
-import { RedundantDummLocationsAlgorithmData } from "../types";
+import { AlgorithmDataContext } from "@/contexts/AlgorithmDataContext";
+import { Point } from "ol/geom";
 
 
 type RedundantDummiesMapViewProps = {
     map: any,
     carla_settings: any,
-    algo_data: RedundantDummLocationsAlgorithmData,
     /** Handler that is called whenever a layer should be added to the map */
     onAddLayer: (layer: Layer) => void,
     /** Handler that is called whenever a layer should be removed from the map */
     onRemoveLayer: (layer: Layer) => void,
 }
 
+export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMapViewProps) {
+    const { redundantDummyLocationsData } = useContext(AlgorithmDataContext)
 
-type Location = {
-    x: number,
-    y: number,
-}
-
-type LogItem = {
-    timestamp: number,
-    location: Location,
-}
-
-type VisualizationInfoResponse = {
-    logs: LogItem[]
-}
-
-export default function MapView({ map, carla_settings, algo_data, onAddLayer, onRemoveLayer}: RedundantDummiesMapViewProps) {
     // Create and add a layer for what the location based service can see
     const baseStyle = useMemo(() => {
         return new Style({
@@ -89,13 +70,13 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
     // Make sure layer is present on map while this component lives
     useEffect(() => {
         // Initially, add the layer
-        if (algo_data.data.showUserMovementStorageDump) {
+        if (redundantDummyLocationsData.showUserMovementStorageDump) {
             onAddLayer(userMovementStorageDumpLayer);
         }
-        if (algo_data.data.showLocationServerLogs) {
+        if (redundantDummyLocationsData.showLocationServerLogs) {
             onAddLayer(locationBasedServiceLayer);
         }
-        if (algo_data.data.showDummyStorageDump) {
+        if (redundantDummyLocationsData.showDummyStorageDump) {
             onAddLayer(dummyStorageDumpLayer);
         }
 
@@ -105,7 +86,7 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
             onRemoveLayer(locationBasedServiceLayer)
             onRemoveLayer(dummyStorageDumpLayer)
         }
-    }, [onAddLayer, onRemoveLayer, userMovementStorageDumpLayer, locationBasedServiceLayer, dummyStorageDumpLayer, algo_data.data]);
+    }, [onAddLayer, onRemoveLayer, userMovementStorageDumpLayer, locationBasedServiceLayer, dummyStorageDumpLayer, redundantDummyLocationsData]);
 
 
     /** Creates a point feature from x and y coordinates */
@@ -123,16 +104,16 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
     // Add points from logs
     useEffect(() => {
         const newSource = new VectorSource({
-            features: algo_data.data.locationServerLogs.map((logItem) => createPoint(logItem.location.x, logItem.location.y))
+            features: redundantDummyLocationsData.locationServerLogs.map((logItem) => createPoint(logItem.location.x, logItem.location.y))
         });
                 
         locationBasedServiceLayer.setSource(newSource);
-    }, [algo_data.data.locationServerLogs, locationBasedServiceLayer])
+    }, [redundantDummyLocationsData.locationServerLogs, locationBasedServiceLayer])
 
     // Add points from user movement dump
     useEffect(() => {
         const newSource = new VectorSource({
-            features: algo_data.data.userMovementStorageDump
+            features: redundantDummyLocationsData.userMovementStorageDump
                 // Iterate over each movements node list individually so that we can assign different colors to them
                 .map((userMovement) => userMovement.Node_List)
                 .map((nodeList) => {
@@ -161,12 +142,12 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
         });
                 
         userMovementStorageDumpLayer.setSource(newSource);
-    }, [algo_data.data.userMovementStorageDump, userMovementStorageDumpLayer])
+    }, [redundantDummyLocationsData.userMovementStorageDump, userMovementStorageDumpLayer])
 
     // Add points from dummy dump
     useEffect(() => {
         const newSource = new VectorSource({
-            features: algo_data.data.dummyStorageDump
+            features: redundantDummyLocationsData.dummyStorageDump
                 // Iterate over each dummies node list individually so that we can assign different colors to them
                 .map((dummy) => dummy.Node_List)
                 .map((nodeList) => {
@@ -195,6 +176,6 @@ export default function MapView({ map, carla_settings, algo_data, onAddLayer, on
         });
                 
         dummyStorageDumpLayer.setSource(newSource);
-    }, [algo_data.data.dummyStorageDump, dummyStorageDumpLayer])
+    }, [redundantDummyLocationsData.dummyStorageDump, dummyStorageDumpLayer])
     return <></>
 }
