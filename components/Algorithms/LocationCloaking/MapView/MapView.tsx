@@ -9,159 +9,99 @@ import {circular} from 'ol/geom/Polygon';
 import useSWRSubscription from "swr/subscription";
 import Map from "ol/Map";
 import {asArray} from "ol/color";
+import {SWRConfiguration} from "swr";
 
 
-export function MapView({ map, parent, carla_settings, position_data, algo_data, layers }: IMapView) {
-        // TODO: Your implementation
-        // If you need to access, e.g., vehicles drawn on the map see the map_obj parent layers and features
-        const [planeData, setPlaneData] = useState<any>({});
-        const [gridLayer, setGridLayer] = useState<VectorLayer<VectorSource>>();
-        const [positionGranulesLayer, setPositionGranulesLayer] = useState<VectorLayer<VectorSource>>();
-        const [vicinityGranulesLayer, setVicinityGranulesLayer] = useState<VectorLayer<VectorSource>>();
-        const [vicinityShapeLayer, setVicinityShapeLayer] = useState<VectorLayer<VectorSource>>();
-        const [maxGridLevel, setMaxGridLevel] = useState(0);
+export function MapView2({ map, parent, carla_settings, position_data, algo_data, layers }: IMapView) {
+    // TODO: Your implementation
+    // If you need to access, e.g., vehicles drawn on the map see the map_obj parent layers and features
+    const [planeData, setPlaneData] = useState<any>({});
+    const [gridLayer, setGridLayer] = useState<VectorLayer<VectorSource>>();
+    const [positionGranulesLayer, setPositionGranulesLayer] = useState<VectorLayer<VectorSource>>();
+    const [vicinityGranulesLayer, setVicinityGranulesLayer] = useState<VectorLayer<VectorSource>>();
+    const [vicinityShapeLayer, setVicinityShapeLayer] = useState<VectorLayer<VectorSource>>();
+    const [maxGridLevel, setMaxGridLevel] = useState(0);
+    const [ws, setWs] = useState<WebSocket>();
 
-        useEffect(() => {
+    useEffect(() => {
 
-                const rectFeature = new Feature({
-                        geometry: new Polygon([[
-                                [planeData.lon_min, planeData.lat_min],
-                                [planeData.lon_min, planeData.lat_max],
-                                [planeData.lon_max, planeData.lat_max],
-                                [planeData.lon_max, planeData.lat_min],
-                                [planeData.lon_min, planeData.lat_min]
-                        ]]).transform('EPSG:4326', 'EPSG:3857')
-                });
+        const rectFeature = new Feature({
+            geometry: new Polygon([[
+                [planeData.lon_min, planeData.lat_min],
+                [planeData.lon_min, planeData.lat_max],
+                [planeData.lon_max, planeData.lat_max],
+                [planeData.lon_max, planeData.lat_min],
+                [planeData.lon_min, planeData.lat_min]
+            ]]).transform('EPSG:4326', 'EPSG:3857')
+        });
 
-                const initialGridLayer = new VectorLayer({
-                        source: new VectorSource({
-                                features: [rectFeature]
-                        }),
-                        updateWhileAnimating: true,
-                        updateWhileInteracting: true,
-                        zIndex: 2
-                })
-
-                const initialPositionGranulesLayer = new VectorLayer({
-                    source: new VectorSource({
-                        features: []
-                    }),
-                    updateWhileAnimating: true,
-                    updateWhileInteracting: true,
-                    zIndex: 1
-                })
-
-                const initialVicinityGranulesLayer = new VectorLayer({
-                    source: new VectorSource({
-                        features: []
-                    }),
-                    updateWhileAnimating: true,
-                    updateWhileInteracting: true,
-                    zIndex: 1
-                })
-
-                const initialVicinityShapeLayer = new VectorLayer({
-                    source: new VectorSource({
-                        features: []
-                    }),
-                    updateWhileAnimating: true,
-                    updateWhileInteracting: true,
-                    zIndex: 3
-                })
-
-
-                var selected_polygon_style = new Style({
-                        stroke: new Stroke({
-                                width: 8 / map.getView().getResolution(),
-                                color: "#ff0000"
-                        })
-                });
-
-                rectFeature.setStyle(selected_polygon_style);
-                layers.push(initialGridLayer);
-                layers.push(initialPositionGranulesLayer);
-                layers.push(initialVicinityGranulesLayer);
-                layers.push(initialVicinityShapeLayer);
-
-                setGridLayer(initialGridLayer);
-                setPositionGranulesLayer(initialPositionGranulesLayer);
-                setVicinityGranulesLayer(initialVicinityGranulesLayer);
-                setVicinityShapeLayer(initialVicinityShapeLayer);
-
-                return () => {layers.clear()}
-        }, [planeData]);
-
-    const granuleData = useSWRSubscription(
-            'ws://'+algo_data.settings.location_server_ip+":"+algo_data.settings.location_server_port+"/observe",
-            (key, { next }) => {
-                const socket = new WebSocket(key)
-                socket.addEventListener('message', (event) => next(
-                    null,
-                    prev => {
-                            var event_json = JSON.parse(event.data);
-                            let result = structuredClone(prev);
-                            if (event_json["planeData"] !== undefined) {
-                                    setPlaneData({
-                                            "lon_min": event_json["planeData"]["lonMin"],
-                                            "lon_max": event_json["planeData"]["lonMax"],
-                                            "lat_min": event_json["planeData"]["latMin"],
-                                            "lat_max": event_json["planeData"]["latMax"]
-                                    })
-                                    return result;
-                            }
-
-                            if (result === undefined){
-                                result = {};
-                            }
-
-                            if (event_json["type"] == "MsgLSObserverIncUpd") {
-                                const alias = event_json["alias"][0]
-
-                                let remaining_vicinity_granules = [];
-
-                                if (result[alias] !== undefined) {
-                                    remaining_vicinity_granules = result[alias].now.vicinity_granules.slice(0, event_json["level"]+1);
-                                }
-
-                                if (event_json["level"] == remaining_vicinity_granules.length) {
-                                    remaining_vicinity_granules.push(event_json["vicinityInsert"]["granules"]);
-                                } else {
-                                    const level_vicinity_granules = remaining_vicinity_granules[event_json["level"]];
-                                    const remaining_granules = level_vicinity_granules.filter((el) => !(event_json["vicinityDelete"]["granules"].includes(el)));
-                                    remaining_vicinity_granules[event_json["level"]] = [...remaining_granules, ...event_json["vicinityInsert"]["granules"]];
-                                }
-
-                                if (result[alias] === undefined) {
-                                    result[alias] = {
-                                        now: {
-                                            level: event_json["level"],
-                                            position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules,
-                                            vicinity_radius: event_json["vicinityShape"]["radius"]
-                                        },
-                                        prev: {}
-                                    }
-
-                                } else {
-                                    result[alias] = {
-                                        now: {
-                                            level: event_json["level"],
-                                            position_granule: event_json["newLocation"]["granule"],
-                                            vicinity_granules: remaining_vicinity_granules,
-                                            vicinity_radius: event_json["vicinityShape"]["radius"]
-                                        },
-                                        prev: result[alias].now
-                                    }
-                                }
-                                return result;
-                            }
-
-                            return result;
-                    })
-                )
-                return () => socket.close()
+        const initialGridLayer = new VectorLayer({
+            source: new VectorSource({
+                features: [rectFeature]
+            }),
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
+            zIndex: 2
         })
 
+        const initialPositionGranulesLayer = new VectorLayer({
+            source: new VectorSource({
+                features: []
+            }),
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
+            zIndex: 1
+        })
+
+        const initialVicinityGranulesLayer = new VectorLayer({
+            source: new VectorSource({
+                features: []
+            }),
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
+            zIndex: 1
+        })
+
+        const initialVicinityShapeLayer = new VectorLayer({
+            source: new VectorSource({
+                features: []
+            }),
+            updateWhileAnimating: true,
+            updateWhileInteracting: true,
+            zIndex: 3
+        })
+
+
+        var selected_polygon_style = new Style({
+            stroke: new Stroke({
+                width: 8 / map.getView().getResolution(),
+                color: "#ff0000"
+            })
+        });
+
+        rectFeature.setStyle(selected_polygon_style);
+        layers.push(initialGridLayer);
+        layers.push(initialPositionGranulesLayer);
+        layers.push(initialVicinityGranulesLayer);
+        layers.push(initialVicinityShapeLayer);
+
+        setGridLayer(initialGridLayer);
+        setPositionGranulesLayer(initialPositionGranulesLayer);
+        setVicinityGranulesLayer(initialVicinityGranulesLayer);
+        setVicinityShapeLayer(initialVicinityShapeLayer);
+
+        return () => {layers.clear()}
+    }, [planeData]);
+
+    // Done
+    const granuleData = useSWRSubscription(
+        'ws://'+algo_data.settings.location_server_ip+":"+algo_data.settings.location_server_port+"/observe",
+        (key, { next }) => {
+            ws_observe(key, next, setPlaneData, setWs);
+            return () => ws?.close();
+        })
+
+    // Done
     useEffect(() => {
         if (granuleData.data !== undefined) {
             const keys = Object.keys(granuleData.data);
@@ -175,10 +115,13 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
                 }
             }
 
-            if (maxLevel > currentMaxLevel) {
-                setMaxGridLevel(maxLevel+1);
+            const len_source_features = gridLayer?.getSource()?.getFeatures().length;
+            const current_max_level = Math.max(0, Math.log2(len_source_features + 1) - 2);
 
-                for (let i = currentMaxLevel + 1; i <= maxLevel+1; i++) {
+            if (maxLevel > current_max_level && Number.isInteger(current_max_level)) {
+                const start_at = current_max_level == 0 ? 0 : current_max_level + 1;
+
+                for (let i = start_at + 1; i <= maxLevel + 1; i++) {
                     var polygon_style = new Style({
                         stroke: new Stroke({
                             width: (Math.max(2, 8 / i)) / map.getView().getResolution(),
@@ -209,24 +152,20 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
 
                         gridLayer?.getSource()?.addFeatures([north_south, east_west]);
                     }
-
                 }
             }
 
         }
     }, [granuleData.data]);
 
+    // Done
     useEffect(() => {
-        // console.log(vicinityShapeLayer?.getSource()?.getFeatures())
         for (let i = 0; i < position_data.length; i++) {
             const data = position_data[i];
             const id = "CARLA-id-" + data.id;
 
             if (granuleData.data !== undefined && granuleData.data[id] !== undefined) {
                 const feature = vicinityShapeLayer?.getSource()?.getFeatureById(id);
-
-                // console.log(Number(granuleData.data[id].vicinity_radius) * Number(data["greatCircleDistanceFactor"]));
-                // console.log(Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"])
 
                 const polygon_style = new Style({
                     stroke : new Stroke({
@@ -239,7 +178,6 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
                 const circle = new Circle([data["location"]["y"], data["location"]["x"]], Number(granuleData.data[id].now.vicinity_radius) * data["greatCircleDistanceFactor"]).transform('EPSG:4326', 'EPSG:3857')
 
                 if (feature) {
-                    // console.log(circle)
                     feature.setGeometry(polygon);
                 } else {
                     var new_feature = new Feature({
@@ -262,7 +200,6 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
         const alpha = "33";
 
         const agents = Object.keys(algo_data.data.position_granules);
-        // console.log("GRANULE_DATA", granuleData.data);
 
         for (let i = 0; i < agents.length; i++) {
             const agent = agents[i];
@@ -285,6 +222,7 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
                 }
             }
 
+            // Draw if color on
             if (algo_data.data.position_granules[agent] !== undefined) {
                 var polygon_style = new Style({
                     fill: new Fill({
@@ -398,9 +336,9 @@ export function MapView({ map, parent, carla_settings, position_data, algo_data,
             }
         }
     }, [granuleData.data, algo_data.data.vicinity_granules]);
-        return (
-          <div/>
-        );
+    return (
+        <div/>
+    );
 }
 
 function get_granule_features(plane_data, granule_ids, level, id, style, scale=1.0) {
@@ -436,4 +374,103 @@ function get_granule_features(plane_data, granule_ids, level, id, style, scale=1
         features.push(granuleFeature);
     }
     return features;
+}
+
+// Done
+function ws_observe(key, next, setPlaneData, setWs) {
+    let socket = new WebSocket(key)
+    setWs(socket);
+    socket.onclose = () => {
+        setTimeout(() => {
+            ws_observe(key, next, setPlaneData, setWs)
+        }, 4000);
+    }
+    socket.addEventListener('message', (event) => next(
+        null,
+        prev => {
+            var event_json = JSON.parse(event.data);
+            let result = structuredClone(prev);
+            if (event_json["planeData"] !== undefined) {
+                setPlaneData({
+                    "lon_min": event_json["planeData"]["lonMin"],
+                    "lon_max": event_json["planeData"]["lonMax"],
+                    "lat_min": event_json["planeData"]["latMin"],
+                    "lat_max": event_json["planeData"]["latMax"]
+                })
+                return result;
+            }
+
+            if (result === undefined){
+                result = {};
+            }
+
+            if (event_json["type"] == "MsgLSObserverSync") {
+                for (let i = 0; i < event_json["users"].length; i++) {
+                    const user = event_json["users"][i];
+                    const alias = user["alias"][0];
+                    const len_user_granularities = user["granularities"].length;
+
+                    let vicinity_granules_list = []
+                    for (let j = 0; j < len_user_granularities; j++) {
+                        const vicinity_granules = user["granularities"][j]["encryptedVicinity"]["granules"];
+                        vicinity_granules_list.push(vicinity_granules);
+                    }
+
+                    result[alias] = {
+                        now: {
+                            level: user["level"],
+                            position_granule: user["granularities"][len_user_granularities - 1]["encryptedLocation"]["granule"],
+                            vicinity_granules: vicinity_granules_list,
+                            vicinity_radius: user["vicinityShape"]["radius"]
+                        },
+                        prev: {}
+                    }
+                }
+            }
+
+            if (event_json["type"] == "MsgLSObserverIncUpd") {
+                const alias = event_json["alias"][0]
+
+                let remaining_vicinity_granules = [];
+
+                if (result[alias] !== undefined) {
+                    remaining_vicinity_granules = result[alias].now.vicinity_granules.slice(0, event_json["level"]+1);
+                }
+
+                if (event_json["level"] == remaining_vicinity_granules.length) {
+                    remaining_vicinity_granules.push(event_json["vicinityInsert"]["granules"]);
+                } else {
+                    const level_vicinity_granules = remaining_vicinity_granules[event_json["level"]];
+                    const remaining_granules = level_vicinity_granules.filter((el) => !(event_json["vicinityDelete"]["granules"].includes(el)));
+                    remaining_vicinity_granules[event_json["level"]] = [...remaining_granules, ...event_json["vicinityInsert"]["granules"]];
+                }
+
+                if (result[alias] === undefined) {
+                    result[alias] = {
+                        now: {
+                            level: event_json["level"],
+                            position_granule: event_json["newLocation"]["granule"],
+                            vicinity_granules: remaining_vicinity_granules,
+                            vicinity_radius: event_json["vicinityShape"]["radius"]
+                        },
+                        prev: {}
+                    }
+
+                } else {
+                    result[alias] = {
+                        now: {
+                            level: event_json["level"],
+                            position_granule: event_json["newLocation"]["granule"],
+                            vicinity_granules: remaining_vicinity_granules,
+                            vicinity_radius: event_json["vicinityShape"]["radius"]
+                        },
+                        prev: result[alias].now
+                    }
+                }
+                return result;
+            }
+
+            return result;
+        })
+    )
 }
