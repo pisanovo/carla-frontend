@@ -336,14 +336,15 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             const positionFeature = positionGranulesFeatures.find((f) => getFeatureAgentId(f) === id);
 
             const style = granuleStyle(id, "position");
+            const hasColor = locationCloakingData.tileColors[id].positionGranule.color;
 
             // If there is no position granule for a valid agent or the current granule is invalid
-            if (!positionFeature || getFeatureGranuleId(positionFeature) != ga.position_granule) {
+            if (hasColor && (!positionFeature || getFeatureGranuleId(positionFeature) != ga.position_granule)) {
                 const features = granuleIdsToFeatures(id, [ga.position_granule], style);
                 positionGranulesLayer.getSource()?.addFeatures(features);
             }
         });
-    }, []);
+    }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
 
     // Draw new vicinity granules on the map
     useEffect(() => {
@@ -366,11 +367,14 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
                 .filter((granuleId) => !drawnLevelGranuleIds.includes(granuleId))
 
             const style = granuleStyle(id, "vicinity");
+            const hasColor = locationCloakingData.tileColors[id].vicinityGranules.color;
 
-            const features = granuleIdsToFeatures(id, notDrawnLevelGranuleIds, style, 0.9);
-            vicinityGranulesLayer.getSource()?.addFeatures(features);
+            if (hasColor) {
+                const features = granuleIdsToFeatures(id, notDrawnLevelGranuleIds, style, 0.9);
+                vicinityGranulesLayer.getSource()?.addFeatures(features);
+            }
         })
-    }, []);
+    }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
 
     return(
       <></>
