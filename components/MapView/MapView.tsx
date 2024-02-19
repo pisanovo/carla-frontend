@@ -7,10 +7,7 @@ import View from 'ol/View.js';
 import {transform} from 'ol/proj.js';
 import 'ol/ol.css';
 import {
-    Dispatch,
-    MutableRefObject,
     RefObject,
-    SetStateAction,
     useContext,
     useEffect,
     useMemo,
@@ -23,15 +20,14 @@ import useSWRSubscription from 'swr/subscription'
 import {Collection, Feature} from "ol";
 import {Point, Polygon} from "ol/geom";
 import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking/MapView/index"
-import {MapView as TemporalCloakingMapView} from "../Algorithms/TemporalCloaking/MapView/MapView"
 import LayerGroup from "ol/layer/Group";
-import BaseLayer from "ol/layer/Base";
 import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
 import { REDUNDANT_DUMMY_LOCATIONS_ID } from '../Algorithms/RedundantDummyLocations/config';
 import RedundantDummyLocationsMapView from '@/components/Algorithms/RedundantDummyLocations/MapView'
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
+import {Agent} from "@/contexts/types";
 
 
 // export interface IMapView {
@@ -46,32 +42,9 @@ import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 //     algo_data: any
 // }
 
-/** A single element for a carla agent with position information */
-type Agent = {
-    /** The agent carla ID */
-    id: string,
-    /** Agent location (x, y) are (latitude, longitude) */
-    location: {
-        x: number,
-        y: number
-    },
-    /** Can be used to draw a circle of x meters around an agent
-     * and account for the curvature of the earth */
-    greatCircleDistanceFactor: number
-}
+export function MapView() {
+    const { mapAgentsData, setMapAgentsData, settings } = useContext(AlgorithmDataContext);
 
-export type AgentsData = {
-    /** Contains the carla IDs of all active agents */
-    activeAgents: string[],
-    /** List with the positions of active agents */
-    agents: Agent[]
-}
-
-export function MapView(props: any) {
-    const { settings } = useContext(AlgorithmDataContext);
-
-    /** A place to store the active carla agents and their positions */
-    const [agentsData, setAgentsData] = useState<AgentsData>({activeAgents: [], agents: []});
     /** Holds a reference to the map */
     const mapRef = useRef<Map>();
 
@@ -245,7 +218,7 @@ export function MapView(props: any) {
 
     // Listens to updates for carla agents, i.e., the available agents and the respective positions
     useSWRSubscription(
-        'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/agents-stream',
+        'ws://'+settings.carlaServer.ip+':'+settings.carlaServer.port+'/carla/agents-stream',
         (key, { next }) => {
             const socket = new WebSocket(key)
             socket.addEventListener('message', (event) => next(
@@ -255,7 +228,7 @@ export function MapView(props: any) {
 
                     const agents: Agent[] = eventJson["data"];
                     const agent_ids = agents.reduce((acc, ag) => [...acc, ag.id], [] as string[]);
-                    setAgentsData({activeAgents: agent_ids, agents: agents});
+                    setMapAgentsData({activeAgents: agent_ids, agents: agents});
                 })
             )
             return () => socket.close()
@@ -269,7 +242,7 @@ export function MapView(props: any) {
         if (agentFeatures === undefined) return;
 
         // Add or update agent features based on current active agents
-        agentsData.agents.forEach((ag) => {
+        mapAgentsData.agents.forEach((ag) => {
             let agentFeature = agentFeatures.find((el) => el.getId() === ag.id);
 
             const point = new Point([ag.location.y, ag.location.x]).transform('EPSG:4326', 'EPSG:3857');
@@ -294,11 +267,11 @@ export function MapView(props: any) {
             const agentId = feature.getId();
 
             // Remove feature if agent is inactive
-            if (typeof agentId === "string" && !agentsData.activeAgents.includes(agentId)) {
+            if (typeof agentId === "string" && !mapAgentsData.activeAgents.includes(agentId)) {
                 agentLayer?.getSource()?.removeFeature(feature);
             }
         })
-    }, [agentsData.agents]);
+    }, [mapAgentsData.agents]);
 
     // Draw the text for agent IDs above agent features
     useEffect(() => {
@@ -448,21 +421,21 @@ export function MapView(props: any) {
                 ref={mapRef as unknown as RefObject<HTMLDivElement>}
                 style={{ height: "inherit", width: "inherit"}}
             >
-                {props.algorithm === LOCATION_CLOAKING_ID &&
+                {
+                    settings.selectedAlgorithm === LOCATION_CLOAKING_ID &&
                     <LocationCloakingMapView
-                        agentsData={agentsData}
                         onAddLayer={(layer: Layer) => locationCloakingLayerGroup?.getLayers()?.push(layer)}
                         onRemoveLayer={(layer: Layer) => locationCloakingLayerGroup?.getLayers()?.remove(layer)}
                     />
                 }
                 {
-                    props.algorithm === REDUNDANT_DUMMY_LOCATIONS_ID &&
+                    settings.selectedAlgorithm === REDUNDANT_DUMMY_LOCATIONS_ID &&
                     <RedundantDummyLocationsMapView
                         onAddLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.push(layer)}
                         onRemoveLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.remove(layer)}
                     />
                 }
-                {props.algorithm === "Temporal cloaking []" && true
+                {settings.selectedAlgorithm === "Temporal cloaking []" && true
                     // <TemporalCloakingMapView
                         // map={map}
                         // parent={parent}

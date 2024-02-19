@@ -2,13 +2,17 @@ import {Card, Group, Input, NumberInput, ScrollArea, Stack, Switch, Text} from '
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
 import {Settings as TemporalCloakingSettings} from '../Algorithms/TemporalCloaking/Settings/Settings';
+import {useContext} from "react";
+import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 
 export type AlgorithmSettings = {
     settings: any,
     setSettings: (arg0: object) => void
 }
 
-export function SettingsTab(props: any) {
+export function SettingsTab() {
+    const { settings } = useContext(AlgorithmDataContext);
+
     return (
         <ScrollArea  scrollbarSize={4} h="calc(100vh - 16rem)" type="scroll">
             <Stack gap="md">
@@ -27,9 +31,12 @@ export function SettingsTab(props: any) {
                             </Text>
                         </div>
                         <Input
-                            value={props.carlaSettings.ip}
+                            value={settings.carlaServer.ip}
                             onChange={(event) =>
-                                props.setCarlaSettings({ip: event.currentTarget.value, port: props.carlaSettings.port})}
+                                settings.setCarlaServer({
+                                    ip: event.currentTarget.value,
+                                    port: settings.carlaServer.port
+                                })}
                             placeholder="Carla IP-Address" />
                     </Group>
                     <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
@@ -40,9 +47,12 @@ export function SettingsTab(props: any) {
                             </Text>
                         </div>
                         <NumberInput
-                            value={props.carlaSettings.port}
-                            onChange={(num) =>
-                                props.setCarlaSettings({ip: props.carlaSettings.ip, port: Number(num)})}
+                            value={settings.carlaServer.port}
+                            onChange={(port: number) =>
+                                settings.setCarlaServer({
+                                    ip: settings.carlaServer.ip,
+                                    port: port
+                                })}
                             placeholder="Carla Port"
                             hideControls />
                     </Group>
@@ -55,9 +65,7 @@ export function SettingsTab(props: any) {
                     <Text fz="xs" c="dimmed" mt={3} mb="xl">
                         Implementation related configuration settings
                     </Text>
-                    <LocationCloakingSettings
-                        algo_data={props.algorithmData.locationCloakingSettings}
-                    />
+                    <LocationCloakingSettings />
                 </Card>
 
 
@@ -68,9 +76,7 @@ export function SettingsTab(props: any) {
                     <Text fz="xs" c="dimmed" mt={3} mb="xl">
                         Implementation related configuration settings
                     </Text>
-                    <TemporalCloakingSettings
-                        algo_data={props.algorithmData.temporalCloakingSettings}
-                    />
+                    <TemporalCloakingSettings />
                 </Card>
 
 

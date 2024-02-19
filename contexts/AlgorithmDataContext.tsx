@@ -2,15 +2,23 @@ import { RedundantDummLocationsAlgorithmData } from '@/components/Algorithms/Red
 import React, {useState, createContext} from 'react';
 import {LocationCloakingAlgorithmData} from "@/components/Algorithms/LocationCloaking/types";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {AgentsData, CarlaServer} from "@/contexts/types";
+
 
 export type AlgorithmDataContextType = {
     settings: {
+        carlaServer: CarlaServer
+        setCarlaServer: (server: CarlaServer) => void,
+
         selectedAlgorithm: string,
-        setSelectedAlgorithm: (newAlgorithm: string) => void,
+        setSelectedAlgorithm: (algorithm: string) => void,
 
         showAgentIDLabels: boolean,
         setShowAgentIDLabels: (state: boolean) => void,
     }
+
+    mapAgentsData: AgentsData,
+    setMapAgentsData: (data: AgentsData) => void,
 
     redundantDummyLocationsData: RedundantDummLocationsAlgorithmData["data"],
     setRedundantDummyLocationsData: RedundantDummLocationsAlgorithmData["setData"],
@@ -30,12 +38,21 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
     // binds it to the stateF
     {
         settings: {
+            carlaServer: {ip: "127.0.0.1", port: 8200},
+            setCarlaServer: () => {},
+
             selectedAlgorithm: LOCATION_CLOAKING_ID,
             setSelectedAlgorithm: () => {},
 
             showAgentIDLabels: false,
             setShowAgentIDLabels: () => {},
         },
+
+        mapAgentsData: {
+            activeAgents: [],
+            agents: [],
+        },
+        setMapAgentsData: () => {},
 
         redundantDummyLocationsData: {
             dummyStorageDump: [],
@@ -69,6 +86,12 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
     const [showAgentIDLabels, setShowAgentIDLabels] =
         useState<boolean>(false);
 
+    const [carlaServer, setCarlaServer] =
+        useState<CarlaServer>({ip: "127.0.0.1", port: 8200});
+
+    const [mapAgentsData, setMapAgentsData] =
+        useState<AgentsData>({activeAgents: [], agents: []});
+
     /** A place for the dummy locations algorithm to store its data */
     const [redundantDummyLocationsData, setRedundantDummyLocationsData] =
         useState<RedundantDummLocationsAlgorithmData["data"]>({
@@ -92,11 +115,15 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
     return <AlgorithmDataContext.Provider
         value={{
             settings: {
+                carlaServer,
+                setCarlaServer,
                 selectedAlgorithm,
                 setSelectedAlgorithm,
                 showAgentIDLabels,
                 setShowAgentIDLabels,
             },
+            mapAgentsData,
+            setMapAgentsData,
             redundantDummyLocationsData,
             setRedundantDummyLocationsData,
             locationCloakingData,

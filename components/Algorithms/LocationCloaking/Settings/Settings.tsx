@@ -1,27 +1,50 @@
-import {IMapView} from "@/components/MapView/MapView";
 import {Button, Group, Input, JsonInput, NumberInput, Space, Stack, Switch, Text} from "@mantine/core";
 import classes from "@/components/SettingsTab/SettingsTab.module.css";
-import {AlgorithmSettings} from "../../../SettingsTab/SettingsTab";
-import io from 'socket.io-client';
-import {useEffect, useState} from "react";
+import {useContext, useEffect, useMemo, useState} from "react";
 import useSWRSubscription from "swr/subscription";
+import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 
-export function Settings({ algo_data }: any) {
+export function Settings() {
+    const { locationCloakingData, setLocationCloakingData } = useContext(AlgorithmDataContext);
+
+    const [websocket, setWebsocket] = useState<WebSocket>();
     const [configData, setConfigData] = useState<any>("");
+
+    /** Reconnect timeout in ms */
+    const SERVER_CONN_TIMEOUT = 4000;
+
+    const sendConfigUpdate = useMemo(() => function (data: any) {
+        const ws = new WebSocket("ws://127.0.0.1:8200/carla/update-client-config");
+        ws.onopen = function () {
+            ws.send('{"type": "ConfigUpdate", "data": '+JSON.stringify(data)+'}');
+        };
+    }, []);
+
+    const ls_sub_reconnect = function (url: string, next: any) {
+        let socket = new WebSocket(url);
+        setWebsocket(socket);
+        socket.onclose = () => {
+            setTimeout(() => {
+                ls_sub_reconnect(url, next)
+            }, SERVER_CONN_TIMEOUT);
+        }
+
+        // Receive messages from the server
+        socket.addEventListener('message', (event) => next(
+            null, () => {
+                const eventJson = JSON.parse(event.data);
+                setConfigData(eventJson.data);
+            }
+        ))
+    }
 
     useSWRSubscription(
         'ws://127.0.0.1:8200/carla/client-config-stream',
         (key, { next }) => {
-            const socket = new WebSocket(key)
-            socket.addEventListener('message', (event) => next(
-                null,
-                prev => {
-                    var event_json = JSON.parse(event.data);
-                    setConfigData(event_json.data);
-                })
-            )
-            return () => socket.close()
-    })
+            ls_sub_reconnect(key, next);
+            return () => websocket?.close();
+        }
+    );
 
     return (
         <div>
@@ -32,9 +55,15 @@ export function Settings({ algo_data }: any) {
                         Location Server Connection
                     </Text>
                 </div>
-                <Input value={algo_data.settings.location_server_ip || ''}
+                <Input value={locationCloakingData.locationServer.ip || ''}
                        onChange={(event) =>
-                           algo_data.setSettings(s => ({...s, location_server_ip: event.currentTarget.value}))}
+                           setLocationCloakingData({
+                               ...locationCloakingData,
+                               locationServer: {
+                                   ip: event.currentTarget.value,
+                                   port: locationCloakingData.locationServer.port
+                               }
+                           })}
                        placeholder="LS IP-Address" />
             </Group>
             <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
@@ -45,20 +74,17 @@ export function Settings({ algo_data }: any) {
                     </Text>
                 </div>
                 <NumberInput
-                    value={algo_data.settings.location_server_port || ''}
-                    onChange={(num) =>
-                        algo_data.setSettings(s => ({...s, location_server_port: Number(num)}))}
+                    value={locationCloakingData.locationServer.port || ''}
+                    onChange={(port: number) =>
+                        setLocationCloakingData({
+                            ...locationCloakingData,
+                            locationServer: {
+                                ip: locationCloakingData.locationServer.ip,
+                                port: port
+                            }
+                        })}
                     placeholder="LS Port" hideControls />
             </Group>
-            {/*<Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">*/}
-            {/*    <div>*/}
-            {/*        <Text>Test Switch</Text>*/}
-            {/*        <Text size="xs" c="dimmed">*/}
-            {/*            Hello world!*/}
-            {/*        </Text>*/}
-            {/*    </div>*/}
-            {/*    <Switch onLabel="ON" offLabel="OFF" className={classes.switch} size="lg" />*/}
-            {/*</Group>*/}
             <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
                 <Stack>
                     <div>
@@ -71,12 +97,7 @@ export function Settings({ algo_data }: any) {
                 </Stack>
                 <Button
                     variant="default"
-                    onClick={() => {
-                        const ws = new WebSocket("ws://127.0.0.1:8200/carla/update-client-config");
-                        ws.onopen = function () {
-                            ws.send('{"type": "ConfigUpdate", "data": '+JSON.stringify(configData)+'}');
-                        };
-                    }}
+                    onClick={() => sendConfigUpdate(configData)}
                 >
                     Apply
                 </Button>
@@ -91,7 +112,6 @@ export function Settings({ algo_data }: any) {
                 placeholder="Loading..."
                 validationError="Invalid JSON"
                 formatOnBlur
-                // w={400}
                 autosize
                 minRows={4}
                 maxRows={14}

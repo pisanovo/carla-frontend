@@ -6,14 +6,9 @@ import VectorSource from "ol/source/Vector";
 import {Feature} from "ol";
 import {Circle, Polygon} from "ol/geom";
 import {Fill, Stroke, Style} from "ol/style";
-import {AgentsData} from "@/components/MapView/MapView";
 import {asArray} from "ol/color";
 
 type LocationCloakingMapViewProps = {
-    /** Agents position data needed to draw the exact vicinity circle
-     * Note: The exact vicinity circle is not part of the algorithm output,
-     * instead it is used to better understand how the algorithm works */
-    agentsData: AgentsData
     /** Handler that is called whenever a layer should be added to the map */
     onAddLayer: (layer: Layer) => void,
     /** Handler that is called whenever a layer should be removed from the map */
@@ -21,8 +16,8 @@ type LocationCloakingMapViewProps = {
 }
 
 /** TODO: Remove map prop dependencies */
-export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakingMapViewProps) {
-    const { locationCloakingData } = useContext(AlgorithmDataContext);
+export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProps) {
+    const { mapAgentsData, locationCloakingData } = useContext(AlgorithmDataContext);
 
     /** The factor changing widths of grid lines | Formerly: ol.map.getView().getResolution()*/
     const GRID_RESOLUTION_FACTOR = 2;
@@ -58,7 +53,9 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
             })
         }), []);
 
+    /** Returns the tile style depending on the user set color and tile granule type */
     const granuleStyle = useMemo(() => function (agentId: string, mode: "position" | "vicinity") {
+        // Choose the color depending on granule type
         const color = mode === "position"
             ? locationCloakingData.tileColors[agentId].positionGranule.color
             : locationCloakingData.tileColors[agentId].vicinityGranules.color;
@@ -125,22 +122,27 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
             zIndex: 3
         }), []);
 
+    /** Helper function to extract the agent ID from the feature name composed as agentId:granuleId */
     const getFeatureAgentId = useMemo(() => function (f: Feature): string {
         return f.getId()!.toString().split(':')[0];
     }, []);
 
+    /** Helper function to extract the granule ID from the feature name composed as agentId:granuleId */
     const getFeatureGranuleId = useMemo(() => function (f: Feature): number {
         return Number(f.getId()!.toString().split(':')[1]);
     }, []);
 
+    /** Helper function to convert a granuleId to its level, row index and column index on the grid */
     const granuleIdToGrid = useMemo(() => function (id: number) {
-        const level = Math.log(((3 * id) / 4) + 1) / Math.log(4);
+        const level = Math.floor(Math.log(((3 * id) / 4) + 1) / Math.log(4));
+        // Total number of granules on levels 0...level-1
         const numGranulesLowerLevel = (4 / 3) * ((4 ** level) - 1);
         const granuleRowIndex = Math.floor((id - numGranulesLowerLevel) / (2 ** (level + 1)));
         const granuleColumnIndex = (id - numGranulesLowerLevel) % (2 ** (level + 1));
         return [level, granuleRowIndex, granuleColumnIndex];
     }, []);
 
+    /** Helper function which turns granule IDs into corresponding map features */
     const granuleIdsToFeatures = useMemo(() => function (
         gaId: string,
         gIds: number[],
@@ -158,6 +160,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
             const granuleLonMin = gridPlane.longitude.min + (levelGranuleWidth * col);
             const granuleLatMin = gridPlane.latitude.max - (levelGranuleHeight * (row + 1));
 
+            // Tile granule polygon
             const granulePolygon = new Polygon([[
                 [granuleLonMin, granuleLatMin],
                 [granuleLonMin + levelGranuleWidth, granuleLatMin],
@@ -171,6 +174,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
             const granuleFeature = new Feature({
                 geometry: granulePolygon
             });
+            // Set the feature ID such that it can be searched for when removing invalid features
             granuleFeature.setId(gaId + ":" + granuleId);
             granuleFeature.setStyle(style);
 
@@ -208,7 +212,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
                 return ga.level > max_lvl ? ga.level : max_lvl;
             }, 0);
 
-        const numDrawnLines = gridLayer.getSource()?.getFeatures().length;
+        const numDrawnLines = gridLayer.getSource()?.getFeatures().length || 0;
 
         if (numDrawnLines === undefined) return;
 
@@ -252,7 +256,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
 
     // Draw the exact vicinity circle at agent positions to better understand the algorithm
     useEffect(() => {
-        agentsData.agents.forEach((ag) => {
+        mapAgentsData.agents.forEach((ag) => {
             let vicinityFeature = vicinityShapeLayer.getSource()?.getFeatureById(ag.id);
 
             const vicinityCircle = new Circle(
@@ -274,7 +278,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
                 vicinityShapeLayer.getSource()?.addFeature(vicinityFeature);
             }
         })
-    }, [agentsData.agents]);
+    }, [mapAgentsData.agents]);
 
     // Remove position granules from the map that are not needed anymore
     useEffect(() => {
@@ -322,7 +326,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
 
     }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
 
-    // Draw new position granules to the map
+    // Draw new position granules on the map
     useEffect(() => {
         const positionGranulesFeatures = positionGranulesLayer.getSource()?.getFeatures();
 
@@ -333,6 +337,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
 
             const style = granuleStyle(id, "position");
 
+            // If there is no position granule for a valid agent or the current granule is invalid
             if (!positionFeature || getFeatureGranuleId(positionFeature) != ga.position_granule) {
                 const features = granuleIdsToFeatures(id, [ga.position_granule], style);
                 positionGranulesLayer.getSource()?.addFeatures(features);
@@ -340,7 +345,7 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
         });
     }, []);
 
-    // Draw new vicinity granules to the map
+    // Draw new vicinity granules on the map
     useEffect(() => {
         const vicinityGranulesFeatures = vicinityGranulesLayer.getSource()?.getFeatures();
 
@@ -349,12 +354,14 @@ export function MapView({agentsData, onAddLayer, onRemoveLayer}: LocationCloakin
         Object.entries(locationCloakingData.gridAgentData).forEach(([id, ga]) => {
             const vicinityStack = locationCloakingData.gridAgentData[id].vicinity_granules;
             const vicinityStackTop = vicinityStack[vicinityStack.length - 1];
+            // Get the granules which are already drawn the highest level
             const drawnLevelGranuleIds = vicinityGranulesFeatures
                 .filter((f) => f.getId())
                 .filter((f) => getFeatureAgentId(f) === id)
                 .filter((f) => vicinityStackTop.includes(getFeatureGranuleId(f)))
                 .map((f) => getFeatureGranuleId(f))
 
+            // Get the granules at the highest level which are not on the map yet
             const notDrawnLevelGranuleIds = vicinityStackTop
                 .filter((granuleId) => !drawnLevelGranuleIds.includes(granuleId))
 

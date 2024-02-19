@@ -7,18 +7,23 @@ import {
     MsgPartLSClientInitComplete,
     MsgPartLSObserverIncUpd, MsgPartLSObserverSync
 } from "@/components/Algorithms/LocationCloaking/types";
+import {Anchor, Center, ColorInput, Group, Loader, rem, ScrollArea, Stack, Table, Text, Tooltip} from "@mantine/core";
+import {IconChartArcs3, IconCurrentLocation} from "@tabler/icons-react";
 
 export default function () {
     const {
+        mapAgentsData,
         locationCloakingData,
-        setLocationCloakingData,
+        setLocationCloakingData
     } = useContext(AlgorithmDataContext);
 
     /** Reconnect timeout to location server in ms */
     const LOCATION_SERVER_CONN_TIMEOUT = 4000;
+    /** Available tile colors */
+    const TILE_COLORS = ['', '#868e96', '#fa5252', '#e64980', '#be4bdb', '#7950f2', '#4c6ef5',
+        '#228be6', '#15aabf', '#12b886', '#40c057', '#82c91e', '#fab005', '#fd7e14'];
     /** Save the current websocket connection and create a new one on timeout */
     const [lsWebsocket, setLsWebsocket] = useState<WebSocket>();
-
 
     /** Manage algorithm data */
 
@@ -127,4 +132,85 @@ export default function () {
             return () => lsWebsocket?.close();
         }
     );
+
+
+    /** Algorithm Data Tab */
+
+    const rows = mapAgentsData.activeAgents.map((agentId: string) => (
+        <Table.Tr key={agentId}>
+            <Table.Td>
+                <Anchor underline="never">
+                    <Text size="sm">
+                        {Number(agentId.replace(/^\D+/g, ''))}
+                    </Text>
+                </Anchor>
+            </Table.Td>
+            <Table.Td>
+                1/3
+            </Table.Td>
+            <Table.Td>
+                <Group gap="xs">
+                    <Tooltip label="Show Position Granules">
+                        <ColorInput w={130}
+                                    placeholder="Hidden"
+                                    rightSection={
+                                        <IconCurrentLocation style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                                    }
+                                    swatchesPerRow={7}
+                                    swatches={TILE_COLORS}
+                                    onChangeEnd={(color) => {
+                                        const newColor = color === "#000000" ? undefined : color;
+                                        const tileColors = structuredClone(locationCloakingData.tileColors);
+                                        tileColors[agentId].positionGranule.color = newColor;
+                                        setLocationCloakingData({...locationCloakingData, tileColors})
+                                    }}
+                        />
+                    </Tooltip>
+                    <Tooltip label="Show Vicinity Granules">
+                        <ColorInput w={130}
+                                    placeholder="Hidden"
+                                    rightSection={
+                                        <IconChartArcs3 style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                                    }
+                                    swatchesPerRow={7}
+                                    swatches={TILE_COLORS}
+                                    onChangeEnd={(color) => {
+                                        const newColor = color === "#000000" ? undefined : color;
+                                        const tileColors = structuredClone(locationCloakingData.tileColors);
+                                        tileColors[agentId].vicinityGranules.color = newColor;
+                                        setLocationCloakingData({...locationCloakingData, tileColors})
+                                    }}
+                        />
+                    </Tooltip>
+                </Group>
+            </Table.Td>
+        </Table.Tr>
+    ));
+
+    return (
+        <Stack gap="0">
+            {mapAgentsData.activeAgents.length === 0 &&
+                <Center h="calc(100vh - 15rem)">
+                    <Stack gap="4">
+                        <Center>
+                            <Loader size={40}/>
+                        </Center>
+                        <Text size="xs">Waiting for connection...</Text>
+                    </Stack>
+                </Center>
+            }
+            <ScrollArea  scrollbarSize={4} h="calc(100vh - 16rem)" type="scroll">
+                <Table highlightOnHover>
+                    <Table.Thead>
+                        <Table.Tr>
+                            <Table.Th>ID</Table.Th>
+                            <Table.Th>Policy Current/Max Lvl</Table.Th>
+                            <Table.Th style={{ width: rem(295) }}>Granule Visualization</Table.Th>
+                        </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>{rows}</Table.Tbody>
+                </Table>
+            </ScrollArea>
+        </Stack>
+    )
 }
