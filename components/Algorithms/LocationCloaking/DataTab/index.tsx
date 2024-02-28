@@ -1,11 +1,12 @@
-import {useContext, useState} from "react";
+import {useContext, useEffect, useState} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
-import useSWRSubscription, {SWRSubscription, SWRSubscriptionOptions} from "swr/subscription";
+import useSWRSubscription from "swr/subscription";
 import {MSG_INCREMENTAL_UPDATE, MSG_INIT_COMPLETE, MSG_SYNC} from "@/components/Algorithms/LocationCloaking/config";
 import {
-    GridPlane,
+    LocationCloakingAlgorithmData,
     MsgPartLSClientInitComplete,
-    MsgPartLSObserverIncUpd, MsgPartLSObserverSync
+    MsgPartLSObserverIncUpd,
+    MsgPartLSObserverSync
 } from "@/components/Algorithms/LocationCloaking/types";
 import {Anchor, Center, ColorInput, Group, Loader, rem, ScrollArea, Stack, Table, Text, Tooltip} from "@mantine/core";
 import {IconChartArcs3, IconCurrentLocation} from "@tabler/icons-react";
@@ -28,22 +29,22 @@ export default function () {
     /** Manage algorithm data */
 
     // Function handling initialization messages from the location server
-    const handle_msg_ls_init = function (part: MsgPartLSClientInitComplete) {
-        const newGridPlane: GridPlane = {
-            longitude: {
-                min: part.planeData.lonMin,
-                max: part.planeData.lonMax
-            },
-            latitude: {
-                min: part.planeData.latMin,
-                max: part.planeData.latMax
-            }
-        }
-        setLocationCloakingData({...locationCloakingData, gridPlane: newGridPlane})
+    const handle_msg_ls_init = (part: MsgPartLSClientInitComplete, prev: LocationCloakingAlgorithmData["data"]) => {
+            prev.gridPlane = {
+                longitude: {
+                    min: part.planeData.lonMin,
+                    max: part.planeData.lonMax
+                },
+                latitude: {
+                    min: part.planeData.latMin,
+                    max: part.planeData.latMax
+                }
+            };
+            return prev;
     }
 
     // Function handling state synchronization, i.e., full updates on connection to the location server
-    const handle_msg_sync = function (part: MsgPartLSObserverSync) {
+    const handle_msg_sync = (part: MsgPartLSObserverSync, prev: LocationCloakingAlgorithmData["data"]) => {
         part.users.forEach(function (user) {
             const agent_alias = user.alias[0];
 
@@ -53,25 +54,26 @@ export default function () {
             }, [] as number[][]);
 
             // Update agent data
-            locationCloakingData.gridAgentData[agent_alias] = {
+            prev.gridAgentData = {...prev.gridAgentData, [agent_alias]: {
                 level: user.level,
                 position_granule: user.granularities[user.granularities.length - 1].encryptedLocation.granule,
                 vicinity_granules: gs_stack_vicinity_granules,
                 vicinity_radius: user.vicinityShape.radius
-            }
+            }};
         });
+        return prev;
     }
 
     // Function handling incremental update messages from the location server
-    const handle_msg_inc_upd = function (part: MsgPartLSObserverIncUpd) {
+    const handle_msg_inc_upd = (part: MsgPartLSObserverIncUpd, prev: LocationCloakingAlgorithmData["data"]) => {
         const agent_alias = part.alias[0];
 
-        const existing_vicinity_granules = locationCloakingData.gridAgentData[agent_alias];
+        const existing_vicinity_granules = prev.gridAgentData[agent_alias];
         // New granularity stack containing vicinity granules at different levels
         let new_vicinity_granules: number[][] = [];
 
         // Truncate existing vicinity granules to level matching the update
-        if (agent_alias in locationCloakingData.gridAgentData) {
+        if (agent_alias in prev.gridAgentData) {
             new_vicinity_granules = existing_vicinity_granules.vicinity_granules.slice(0, part.level + 1);
         }
 
@@ -80,19 +82,43 @@ export default function () {
         if (part.level == new_vicinity_granules.length) {
             new_vicinity_granules.push(part.vicinityInsert.granules);
         } else {
+            // console.log("vc", agent_alias, part.level, prev.gridAgentData);
             const level_vc_granules = new_vicinity_granules[part.level];
             const remaining_level_vc_granules = level_vc_granules.filter((el) =>
                 !(part.vicinityDelete.granules.includes(el)));
-            new_vicinity_granules[part.level] = [...remaining_level_vc_granules, ...part.vicinityInsert.granules];
+            const mergedGranules = [...remaining_level_vc_granules, ...part.vicinityInsert.granules];
+            new_vicinity_granules[part.level] = Array.from(new Set(mergedGranules));
+
         }
 
-        // Update agent data
-        locationCloakingData.gridAgentData[agent_alias] = {
-            level: part.level,
-            position_granule: part.newLocation.granule,
-            vicinity_granules: new_vicinity_granules,
-            vicinity_radius: part.vicinityShape.radius
+        const upd = {
+                level: part.level,
+                position_granule: part.newLocation.granule,
+                vicinity_granules: new_vicinity_granules,
+                vicinity_radius: part.vicinityShape.radius
+        };
+
+        if (JSON.stringify(prev.gridAgentData[agent_alias]) !== JSON.stringify(upd)) {
+            prev.gridAgentData = {...prev.gridAgentData, [agent_alias]: upd};
         }
+
+        return prev;
+    }
+
+    const handle_msg = (data: any, prev: LocationCloakingAlgorithmData["data"]) => {
+        const eventJson = JSON.parse(data);
+        // Receive message after initialization and update grid plane
+        if (eventJson["type"] == MSG_INIT_COMPLETE) {
+            return handle_msg_ls_init(eventJson, prev);
+            // Receive message containing full state (only sent once on each new connection)
+        } else if (eventJson["type"] == MSG_SYNC) {
+            return handle_msg_sync(eventJson, prev);
+            // Receive newest update
+        } else if (eventJson["type"] == MSG_INCREMENTAL_UPDATE) {
+            return handle_msg_inc_upd(eventJson, prev);
+        }
+
+        return prev;
     }
 
     // Wrapper for the location server websocket connection adding reconnect
@@ -106,32 +132,35 @@ export default function () {
         }
 
         // Receive messages from the location server
-        socket.addEventListener('message', (event) => next(
-            null, () => {
-                const eventJson = JSON.parse(event.data);
-
-                // Receive message after initialization and update grid plane
-                if (eventJson["type"] == MSG_INIT_COMPLETE) {
-                    handle_msg_ls_init(eventJson);
-                // Receive message containing full state (only sent once on each new connection)
-                } else if (eventJson["type"] == MSG_SYNC) {
-                    handle_msg_sync(eventJson);
-                // Receive newest update
-                } else if (eventJson["type"] == MSG_INCREMENTAL_UPDATE) {
-                    handle_msg_inc_upd(eventJson);
-                }
-            }
-        ))
+        socket.addEventListener('message', (event) => next(null, (prev: any) => {
+            if(!prev) prev = structuredClone(locationCloakingData);
+            return handle_msg(event.data, prev);
+        }))
     }
 
     // Listens to stream of updates from the location server
-    useSWRSubscription(
+    const {data} = useSWRSubscription(
         'ws://'+locationCloakingData.locationServer.ip+":"+locationCloakingData.locationServer.port+"/observe",
         (key, { next }) => {
             ls_sub_reconnect(key, next);
             return () => lsWebsocket?.close();
         }
     );
+
+    useEffect(() => {
+
+        if (data) {
+            const a = {
+                ...locationCloakingData,
+                gridPlane: data.gridPlane,
+                gridAgentData: {...data.gridAgentData}
+            };
+            a.gridAgentData = data.gridAgentData;
+            a.gridPlane = data.gridPlane;
+            console.log(a);
+            setLocationCloakingData(a)
+        }
+    }, [data?.gridPlane, data?.gridAgentData]);
 
 
     /** Algorithm Data Tab */
@@ -161,7 +190,8 @@ export default function () {
                                     onChangeEnd={(color) => {
                                         const newColor = color === "#000000" ? undefined : color;
                                         const tileColors = structuredClone(locationCloakingData.tileColors);
-                                        tileColors[agentId].positionGranule.color = newColor;
+                                        if (!tileColors[agentId]) tileColors[agentId] = {vicinityGranules: {color: undefined}, positionGranule: {color: undefined}}
+                                        tileColors[agentId] = {...tileColors[agentId], positionGranule: {color: newColor}};
                                         setLocationCloakingData({...locationCloakingData, tileColors})
                                     }}
                         />
@@ -177,7 +207,8 @@ export default function () {
                                     onChangeEnd={(color) => {
                                         const newColor = color === "#000000" ? undefined : color;
                                         const tileColors = structuredClone(locationCloakingData.tileColors);
-                                        tileColors[agentId].vicinityGranules.color = newColor;
+                                        if (!tileColors[agentId]) tileColors[agentId] = {vicinityGranules: {color: undefined}, positionGranule: {color: undefined}}
+                                        tileColors[agentId] = {...tileColors[agentId], vicinityGranules: {color: newColor}};
                                         setLocationCloakingData({...locationCloakingData, tileColors})
                                     }}
                         />

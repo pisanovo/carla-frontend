@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import {HeaderIndex} from "@/components/Header/HeaderIndex";
 import {Icon123, IconNavigationCode, IconSettings, IconX} from "@tabler/icons-react";
-import LocationCloakingDataTab from "@/components/Algorithms/LocationCloaking/DataTab/index";
+import LocationCloakingDataTab from "@/components/Algorithms/LocationCloaking/DataTab";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
 import {SettingsTab} from "@/components/SettingsTab/SettingsTab";
@@ -104,15 +104,15 @@ export function Root() {
                 <Group justify="space-between" mb={15} mr={30} mt={15} ml={30}>
                     <Group>
                         <NativeSelect
-                            w={300}
-                            value={settings.selectedAlgorithm}
+                            w={360}
+                            value={"Algorithm: " + settings.selectedAlgorithm}
                             onChange={(event) =>
-                                settings.setSelectedAlgorithm(event.currentTarget.value)}
+                                settings.setSelectedAlgorithm(event.currentTarget.value.split(":")[1].trim())}
                             data={[
-                                LOCATION_CLOAKING_ID,
-                                'Temporal cloaking []',
-                                REDUNDANT_DUMMY_LOCATIONS_ID,
-                                "Path confusion []"
+                                "Algorithm: " + LOCATION_CLOAKING_ID,
+                                "Algorithm: " + 'Temporal cloaking []',
+                                "Algorithm: " + REDUNDANT_DUMMY_LOCATIONS_ID,
+                                "Algorithm: " + "Path confusion []"
                             ]}
                         />
                     </Group>
@@ -122,9 +122,10 @@ export function Root() {
                             color="red"
                             variant="filled"
                             size="xs"
-                            defaultChecked
+                            checked={false}
+                            onChange={(c) => null}
                         >
-                            Status: Not connected to Carla
+                            Data Intensive Computing WS 23/24
                         </Chip>
                     </Group>
                 </Group>

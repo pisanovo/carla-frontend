@@ -110,6 +110,7 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             gridAgentData: {},
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
         });
+
     // TODO: Add more algorithms
 
     return <AlgorithmDataContext.Provider
@@ -126,8 +127,8 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             setMapAgentsData,
             redundantDummyLocationsData,
             setRedundantDummyLocationsData,
-            locationCloakingData,
-            setLocationCloakingData
+            locationCloakingData: locationCloakingData,
+            setLocationCloakingData: setLocationCloakingData
         }}
     >
         {children}

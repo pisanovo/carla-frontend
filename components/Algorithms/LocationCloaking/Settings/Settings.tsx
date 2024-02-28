@@ -1,13 +1,25 @@
-import {Button, Group, Input, JsonInput, NumberInput, Space, Stack, Switch, Text} from "@mantine/core";
+import {
+    Button,
+    Group,
+    Input,
+    JsonInput,
+    NumberInput,
+    Space,
+    Stack,
+    Text,
+    rem,
+} from "@mantine/core";
 import classes from "@/components/SettingsTab/SettingsTab.module.css";
-import {useContext, useEffect, useMemo, useState} from "react";
+import {useContext, useMemo, useState} from "react";
 import useSWRSubscription from "swr/subscription";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
+import {IconCircleFilled} from "@tabler/icons-react";
 
 export function Settings() {
     const { locationCloakingData, setLocationCloakingData } = useContext(AlgorithmDataContext);
 
     const [websocket, setWebsocket] = useState<WebSocket>();
+    const [savedConfigData, setSavedConfigData] = useState<any>("");
     const [configData, setConfigData] = useState<any>("");
 
     /** Reconnect timeout in ms */
@@ -18,6 +30,7 @@ export function Settings() {
         ws.onopen = function () {
             ws.send('{"type": "ConfigUpdate", "data": '+JSON.stringify(data)+'}');
         };
+        setSavedConfigData(configData);
     }, []);
 
     const ls_sub_reconnect = function (url: string, next: any) {
@@ -33,6 +46,7 @@ export function Settings() {
         socket.addEventListener('message', (event) => next(
             null, () => {
                 const eventJson = JSON.parse(event.data);
+                setSavedConfigData(eventJson.data);
                 setConfigData(eventJson.data);
             }
         ))
@@ -90,7 +104,7 @@ export function Settings() {
                     <div>
                         <Text>Client Configuration</Text>
                         <Text size="xs" c="dimmed">
-                            Hello world!
+                            Change the algorithm client configuration
                         </Text>
                     </div>
 
@@ -108,7 +122,22 @@ export function Settings() {
                 onChange={(value) => {
                     setConfigData(value);
                 }}
-                label="client_config.json"
+                label={
+                    <Group gap="0">
+                        <Text size="sm">client_config.json</Text>
+                        <Space w="9"/>
+                        {
+                            configData !== savedConfigData &&
+                            <Group gap="4">
+                                <Text size="sm">|</Text>
+                                <Space w="2"/>
+                                <IconCircleFilled style={{color: "red", width: rem(9), height: rem(9) }} />
+                                <Text size="xs">Unsaved changes</Text>
+                            </Group>
+
+                        }
+                    </Group>
+                }
                 placeholder="Loading..."
                 validationError="Invalid JSON"
                 formatOnBlur

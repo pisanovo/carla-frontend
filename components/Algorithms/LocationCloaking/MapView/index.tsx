@@ -1,12 +1,13 @@
 import {Layer} from "ol/layer";
-import {useContext, useEffect, useMemo, useState} from "react";
+import {useContext, useEffect, useMemo} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import {Feature} from "ol";
-import {Circle, Polygon} from "ol/geom";
+import {Polygon} from "ol/geom";
 import {Fill, Stroke, Style} from "ol/style";
 import {asArray} from "ol/color";
+import {circular} from "ol/geom/Polygon";
 
 type LocationCloakingMapViewProps = {
     /** Handler that is called whenever a layer should be added to the map */
@@ -20,9 +21,9 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
     const { mapAgentsData, locationCloakingData } = useContext(AlgorithmDataContext);
 
     /** The factor changing widths of grid lines | Formerly: ol.map.getView().getResolution()*/
-    const GRID_RESOLUTION_FACTOR = 2;
+    const GRID_RESOLUTION_FACTOR = 4.5;
     /** Determines the transparency of a granule tile as HEX */
-    const GRANULE_ALPHA = "33";
+    const GRANULE_ALPHA = "4D";
 
     /** Style describing the bounding box of the granules grid */
     const gridBoundingBoxStyle = useMemo(() =>
@@ -59,6 +60,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
         const color = mode === "position"
             ? locationCloakingData.tileColors[agentId].positionGranule.color
             : locationCloakingData.tileColors[agentId].vicinityGranules.color;
+        if(!color) return;
         return new Style({
             fill: new Fill({
                 color: asArray(color + GRANULE_ALPHA)
@@ -82,12 +84,12 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
     const gridLayer = useMemo(() =>
         new VectorLayer({
             source: new VectorSource({
-                features: [gridBoundingBoxFeature]
+                features: []
             }),
             updateWhileAnimating: true,
             updateWhileInteracting: true,
             zIndex: 2
-        }), [gridBoundingBoxFeature]);
+        }), [locationCloakingData.gridPlane]);
 
     /** Layer that visualizes agent position granules */
     const positionGranulesLayer = useMemo(() =>
@@ -225,7 +227,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             // Draw grid lines north-to-south and west-to-east at levels drawn_max_level...actual_max_level
             for (let level = drawnMaxLevel + 1; level <= actualMaxLevel; level++) {
                 // Draw grid lines at level
-                for (let j = 0; j < 2 ** level; j = j+2) {
+                for (let j = 0; j < 2 ** (level+1); j = j+2) {
                     const northSouthLon = gp.longitude.min + (j+1) * ((gp.longitude.max - gp.longitude.min) / (2 ** (level+1)));
                     const eastWestLat = gp.latitude.min + (j+1) * ((gp.latitude.max - gp.latitude.min) / (2 ** (level + 1)));
 
@@ -252,14 +254,16 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
                 }
             }
         }
-    }, [locationCloakingData.gridAgentData]);
+    }, [locationCloakingData.gridAgentData, locationCloakingData.gridPlane]);
 
     // Draw the exact vicinity circle at agent positions to better understand the algorithm
     useEffect(() => {
         mapAgentsData.agents.forEach((ag) => {
+            if(!locationCloakingData.gridAgentData[ag.id]) return;
+
             let vicinityFeature = vicinityShapeLayer.getSource()?.getFeatureById(ag.id);
 
-            const vicinityCircle = new Circle(
+            const vicinityCircle = circular(
                 [ag.location.y, ag.location.x],
                 locationCloakingData.gridAgentData[ag.id].vicinity_radius * ag.greatCircleDistanceFactor
             ).transform('EPSG:4326', 'EPSG:3857')
@@ -333,13 +337,15 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
         if (!positionGranulesFeatures) return;
 
         Object.entries(locationCloakingData.gridAgentData).forEach(([id, ga]) => {
+            if (!locationCloakingData.tileColors[id]) return;
             const positionFeature = positionGranulesFeatures.find((f) => getFeatureAgentId(f) === id);
 
             const style = granuleStyle(id, "position");
+            // Only draw if the user selected color is not transparent
             const hasColor = locationCloakingData.tileColors[id].positionGranule.color;
 
             // If there is no position granule for a valid agent or the current granule is invalid
-            if (hasColor && (!positionFeature || getFeatureGranuleId(positionFeature) != ga.position_granule)) {
+            if (style && hasColor && (!positionFeature || getFeatureGranuleId(positionFeature) != ga.position_granule)) {
                 const features = granuleIdsToFeatures(id, [ga.position_granule], style);
                 positionGranulesLayer.getSource()?.addFeatures(features);
             }
@@ -353,6 +359,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
         if (!vicinityGranulesFeatures) return;
 
         Object.entries(locationCloakingData.gridAgentData).forEach(([id, ga]) => {
+            if (!locationCloakingData.tileColors[id]) return;
             const vicinityStack = locationCloakingData.gridAgentData[id].vicinity_granules;
             const vicinityStackTop = vicinityStack[vicinityStack.length - 1];
             // Get the granules which are already drawn the highest level
@@ -369,12 +376,22 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             const style = granuleStyle(id, "vicinity");
             const hasColor = locationCloakingData.tileColors[id].vicinityGranules.color;
 
-            if (hasColor) {
+            // Only draw if the user selected color is not transparent
+            if (style && hasColor) {
                 const features = granuleIdsToFeatures(id, notDrawnLevelGranuleIds, style, 0.9);
                 vicinityGranulesLayer.getSource()?.addFeatures(features);
             }
         })
     }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
+
+    useEffect(() => {
+        console.log("REDRAW", locationCloakingData.gridPlane);
+        gridLayer.getSource()?.clear();
+        gridLayer.getSource()?.addFeature(gridBoundingBoxFeature);
+        positionGranulesLayer.getSource()?.clear();
+        vicinityGranulesLayer.getSource()?.clear();
+        vicinityShapeLayer.getSource()?.clear();
+    }, [locationCloakingData.gridPlane]);
 
     return(
       <></>

@@ -15,10 +15,10 @@ import {
     useState
 } from "react";
 import {Vector as VectorSource} from 'ol/source.js';
-import {Group, Layer, Vector as VectorLayer} from 'ol/layer.js';
+import {Layer, Vector as VectorLayer} from 'ol/layer.js';
 import useSWRSubscription from 'swr/subscription'
-import {Collection, Feature} from "ol";
-import {Point, Polygon} from "ol/geom";
+import {Feature} from "ol";
+import {Point} from "ol/geom";
 import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking/MapView/index"
 import LayerGroup from "ol/layer/Group";
 import {Fill, Stroke, Style, Circle} from "ol/style";
@@ -29,53 +29,15 @@ import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/con
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {Agent} from "@/contexts/types";
 
-
-// export interface IMapView {
-//     map: any,
-//     parent: {
-//         parent_layers: {vehicle_layer: VectorLayer<VectorSource>},
-//         parent_features: {vehicle_features: Feature[]},
-//     },
-//     layers: Collection<BaseLayer>,
-//     position_data: any
-//     carla_settings: any,
-//     algo_data: any
-// }
-
 export function MapView() {
     const { mapAgentsData, setMapAgentsData, settings } = useContext(AlgorithmDataContext);
 
     /** Holds a reference to the map */
     const mapRef = useRef<Map>();
-
-    // const [map, setMap] = useState<Map>();
-    // const [locationCloakingLayerGroup, setLocationCloakingLayerGroup] = useState<LayerGroup>();
-    // const [temporalCloakingLayerGroup, setTemporalCloakingLayerGroup] = useState<LayerGroup>();
-    // const [redundantDummiesLayerGroup, setRedundantDummiesLayerGroup] = useState<LayerGroup>();
-    // const [vehicleLayer, setVehicleLayer] = useState<VectorLayer<VectorSource>>();
-    // const [vehicleFeatures, setVehicleFeatures] = useState<Feature[]>([]);
-    // const [activeVehicles, setActiveVehicles] = useState({});
-    // const [positionData, setPositionData] = useState([]);
-
-
-
-
-    // Done
-    // useEffect(() => {
-    //     const features = vehicleLayer?.getSource()?.getFeatures();
-    //
-    //     if (features !== undefined) {
-    //         for (let i = 0; i < features.length; i++) {
-    //             const feature = features[i];
-    //             if (props.showLabels) {
-    //                 feature.set("label", feature.get("name").toString());
-    //             } else {
-    //                 feature.set("label", "");
-    //             }
-    //         }
-    //     }
-    //
-    // }, [props.showLabels]);
+    /** Reconnect timeout to location server in ms */
+    const BACKEND_SERVER_CONN_TIMEOUT = 4000;
+    /** Save the current websocket connection and create a new one on timeout */
+    const [websocket, setWebsocket] = useState<WebSocket>();
 
     // Base circle style
     const baseCircleStyle = useMemo(() =>
@@ -132,8 +94,8 @@ export function MapView() {
             layers: []
         }), []);
 
-    useMemo(() =>
-        new Map({
+    useEffect(() => {
+        const nmap = new Map({
             target: mapRef.current as unknown as HTMLElement,
             layers: [
                 new TileLayer({
@@ -148,90 +110,34 @@ export function MapView() {
                 center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
                 zoom: 15,
             }),
-        }), []);
+        })
+    }, []);
 
+    // Wrapper for the backend server websocket connection adding reconnect
+    const sub_reconnect = function (url: string, next: any) {
+        let socket = new WebSocket(url);
+        setWebsocket(socket);
+        socket.onclose = () => {
+            setTimeout(() => {
+                sub_reconnect(url, next)
+            }, BACKEND_SERVER_CONN_TIMEOUT);
+        }
 
-    // useEffect(() => {
-    //     var vectorSource = new VectorSource({
-    //         features: vehicleFeatures
-    //     });
-    //
-    //
-    //     var text_style = new Style({
-    //         image: new Circle({
-    //             fill: new Fill({color: [245,121,0,0.8]}),
-    //             stroke: new Stroke({color: [0,0,0,1]}),
-    //             radius: 3.5
-    //         }),
-    //         text: new Text({
-    //             font: '12px Calibri,sans-serif',
-    //             placement: 'point',
-    //             fill: new Fill({ color: '#000' }),
-    //             backgroundFill: new Fill({ color: '#25262B26' }),
-    //             padding: [0, -1, -2, 2],
-    //             offsetY: -12,
-    //         }),
-    //     });
-    //
-    //     // var style = [iconStyle, text_style];
-    //
-    //     const initialVehicleLayer = new VectorLayer({
-    //         source: vectorSource,
-    //         updateWhileAnimating: true,
-    //         updateWhileInteracting: true,
-    //         zIndex: 99,
-    //         style: function(feature) {
-    //             text_style.getText().setText(feature.get('label'));
-    //             return [text_style];
-    //         }
-    //     });
-    //
-    //     const initialLocationCloakingLayerGroup = new LayerGroup({layers: []});
-    //     const initialTemporalCloakingLayerGroup = new LayerGroup({layers: []});
-    //     const initialRedundantDummiesLayerGroup = new LayerGroup({layers: []});
-    //
-    //     const init_map = new Map({
-    //         target: mapRef.current as unknown as HTMLElement,
-    //         layers: [
-    //             new TileLayer({
-    //                 source: new OSM()
-    //             }),
-    //             initialVehicleLayer,
-    //             initialLocationCloakingLayerGroup,
-    //             initialTemporalCloakingLayerGroup,
-    //             initialRedundantDummiesLayerGroup,
-    //         ],
-    //         view: new View({
-    //             center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
-    //             zoom: 15,
-    //         }),
-    //     });
-    //
-    //     setMap(init_map);
-    //     setVehicleLayer(initialVehicleLayer);
-    //     setLocationCloakingLayerGroup(initialLocationCloakingLayerGroup);
-    //     setTemporalCloakingLayerGroup(initialTemporalCloakingLayerGroup);
-    //     setRedundantDummiesLayerGroup(initialRedundantDummiesLayerGroup);
-    // }, []);
-
-
+        // Receive messages from the location server
+        socket.addEventListener('message', (event) => next(null, () => {
+            const eventJson = JSON.parse(event.data);
+            const agents: Agent[] = eventJson["data"];
+            const agent_ids = agents.reduce((acc, ag) => [...acc, ag.id], [] as string[]);
+            setMapAgentsData({activeAgents: agent_ids, agents: agents});
+        }))
+    }
 
     // Listens to updates for carla agents, i.e., the available agents and the respective positions
     useSWRSubscription(
         'ws://'+settings.carlaServer.ip+':'+settings.carlaServer.port+'/carla/agents-stream',
         (key, { next }) => {
-            const socket = new WebSocket(key)
-            socket.addEventListener('message', (event) => next(
-                null,
-                () => {
-                    const eventJson = JSON.parse(event.data);
-
-                    const agents: Agent[] = eventJson["data"];
-                    const agent_ids = agents.reduce((acc, ag) => [...acc, ag.id], [] as string[]);
-                    setMapAgentsData({activeAgents: agent_ids, agents: agents});
-                })
-            )
-            return () => socket.close()
+            sub_reconnect(key, next);
+            return () => websocket?.close()
         }
     );
 
@@ -280,7 +186,8 @@ export function MapView() {
         if (agentFeatures === undefined) return;
 
         agentFeatures.forEach((feature) => {
-            feature.set("label", settings.showAgentIDLabels ? feature.get("name").toString() : "");
+            const agentId = feature.get("name").replace(/^\D+/g, '');
+            feature.set("label", settings.showAgentIDLabels ? agentId : "");
         });
     }, [settings.showAgentIDLabels]);
 
@@ -298,123 +205,6 @@ export function MapView() {
             redundantDummiesLayerGroup?.getLayers().clear();
         }
     }, [settings.selectedAlgorithm]);
-
-
-
-//     // Done
-//     const carlaAgentData= useSWRSubscription(
-//         'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/position-stream',
-//         (key, { next }) => {
-//         const socket = new WebSocket(key)
-//         socket.addEventListener('message', (event) => next(
-//             null,
-//             prev => {
-//                 var event_json = JSON.parse(event.data);
-//                 var result = [...event_json["data"]]
-//                 if (prev !== undefined) {
-//                     for (let i = 0; i < prev.length; i++) {
-//                         var found = false;
-//                         for (let j = 0; j < result.length; j++) {
-//                             if (prev[i]["id"] == result[j]["id"]) {
-//                                 found = true;
-//                             }
-//                         }
-//                         if (!found) {
-//                             result.push(prev[i]);
-//                         }
-//                     }
-//                 }
-//
-//                 return result
-//             })
-//         )
-//         return () => socket.close()
-//     })
-//
-// // Done
-//     useEffect(() => {
-//         if (carlaAgentData.data !== undefined && activeVehicles["agent_ids"]) {
-//             setPositionData(d => (carlaAgentData.data));
-//             for (let i = 0; i < carlaAgentData.data.length; i++) {
-//                 const entry = carlaAgentData.data[i];
-//                 const id = "CARLA-id-"+entry["id"];
-//                 if (!(activeVehicles["agent_ids"].includes(id))) {
-//                     return;
-//                 }
-//                 const location = entry["location"];
-//
-//                 var point = new Point([location["y"], location["x"]]).transform('EPSG:4326', 'EPSG:3857');
-//
-//                 const feature = vehicleLayer?.getSource()?.getFeatureById(entry["id"]);
-//
-//                 if (feature) {
-//                     feature.setGeometry(point);
-//                 } else {
-//
-//                     var new_feature = new Feature({
-//                         name: entry["id"],
-//                         geometry: point,
-//                         label: ""
-//                     });
-//                     new_feature.setId(entry["id"]);
-//                     vehicleLayer?.getSource()?.addFeature(new_feature);
-//                 }
-//             }
-//         }
-//     }, [carlaAgentData]);
-//
-//     // useEffect(() => {
-//     //     console.log("HSJHKJ", positionData)
-//     // }, [positionData]);
-//
-//
-//     // Done
-//     useEffect(() => {
-//         if (activeVehicles["agent_ids"] === undefined) {
-//             return;
-//         }
-//         const features = vehicleLayer?.getSource()?.getFeatures();
-//         let keys = Object.keys(activeVehicles);
-//         if (features) {
-//             for (let i = 0; i < features.length; i++) {
-//                 const feature = features[i];
-//                 const id = feature.getId();
-//
-//                 if (!(activeVehicles["agent_ids"].includes("CARLA-id-"+id))) {
-//                     vehicleLayer?.getSource()?.removeFeature(feature);
-//                 }
-//             }
-//         }
-//     }, [activeVehicles]);
-//
-//
-//
-//     // Done
-//     useSWRSubscription(
-//         'ws://'+props.carlaSettings.ip+':'+props.carlaSettings.port+'/carla/agents',
-//         (key, { next }) => {
-//             const socket = new WebSocket(key)
-//             socket.addEventListener('message', (event) => next(
-//                 null,
-//                 prev => {
-//                     var event_json = JSON.parse(event.data);
-//                     setActiveVehicles(s => ({...s, agent_ids: event_json["data"]}));
-//                     props.algo.locationCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
-//                     props.algo.temporalCloakingSettings.setData(s => ({...s, agent_ids: event_json["data"]}));
-//                 })
-//             )
-//             return () => socket.close()
-//     })
-
-    // const parent = {
-    //     parent_layers: {
-    //         vehicle_layer: vehicleLayer as VectorLayer<VectorSource>
-    //     },
-    //     parent_features: {
-    //         vehicle_features: vehicleFeatures
-    //     }
-    // }
-
 
     return (
             <div
@@ -446,8 +236,6 @@ export function MapView() {
                 }
             </div>
     );
-
-
 }
 
 

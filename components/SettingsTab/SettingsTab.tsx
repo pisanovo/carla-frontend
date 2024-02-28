@@ -1,9 +1,11 @@
-import {Card, Group, Input, NumberInput, ScrollArea, Stack, Switch, Text} from '@mantine/core';
+import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text} from '@mantine/core';
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
 import {Settings as TemporalCloakingSettings} from '../Algorithms/TemporalCloaking/Settings/Settings';
 import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
+import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 
 export type AlgorithmSettings = {
     settings: any,
@@ -58,48 +60,57 @@ export function SettingsTab() {
                     </Group>
                 </Card>
 
-                <Card withBorder radius="md" p="xl" className={classes.card}>
-                    <Text fz="lg" className={classes.title} fw={500}>
-                        Spatial-location cloaking
-                    </Text>
-                    <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                        Implementation related configuration settings
-                    </Text>
-                    <LocationCloakingSettings />
-                </Card>
+                {
+                    settings.selectedAlgorithm === LOCATION_CLOAKING_ID &&
+                    <Card withBorder radius="md" p="xl" className={classes.card}>
+                        <Text fz="lg" className={classes.title} fw={500}>
+                            Spatial-location cloaking
+                        </Text>
+                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
+                            Implementation related configuration settings
+                        </Text>
+                        <LocationCloakingSettings />
+                    </Card>
+                }
 
+                {
+                    settings.selectedAlgorithm === "Temporal cloaking []" &&
+                    <Card withBorder radius="md" p="xl" className={classes.card}>
+                        <Text fz="lg" className={classes.title} fw={500}>
+                            Temporal Cloaking
+                        </Text>
+                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
+                            Implementation related configuration settings
+                        </Text>
+                        <TemporalCloakingSettings />
+                    </Card>
+                }
 
-                <Card withBorder radius="md" p="xl" className={classes.card}>
-                    <Text fz="lg" className={classes.title} fw={500}>
-                        Temporal Cloaking
-                    </Text>
-                    <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                        Implementation related configuration settings
-                    </Text>
-                    <TemporalCloakingSettings />
-                </Card>
+                {
+                    settings.selectedAlgorithm === REDUNDANT_DUMMY_LOCATIONS_ID &&
+                    <Card withBorder radius="md" p="xl" className={classes.card}>
+                        <Text fz="lg" className={classes.title} fw={500}>
+                            Redundant dummy locations
+                        </Text>
+                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
+                            Implementation related configuration settings
+                        </Text>
+                        TBD
+                    </Card>
+                }
 
-
-                <Card withBorder radius="md" p="xl" className={classes.card}>
-                    <Text fz="lg" className={classes.title} fw={500}>
-                        Redundant dummy locations
-                    </Text>
-                    <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                        Implementation related configuration settings
-                    </Text>
-                    TBD
-                </Card>
-
-
-                <Card withBorder radius="md" p="xl" className={classes.card}>
-                    <Text fz="lg" className={classes.title} fw={500}>
-                        Path confusion
-                    </Text>
-                    <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                        Implementation related configuration settings
-                    </Text>
-                    TBD
-                </Card>
+                {
+                    settings.selectedAlgorithm === "Path confusion []" &&
+                    <Card withBorder radius="md" p="xl" className={classes.card}>
+                        <Text fz="lg" className={classes.title} fw={500}>
+                            Path confusion
+                        </Text>
+                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
+                            Implementation related configuration settings
+                        </Text>
+                        TBD
+                    </Card>
+                }
             </Stack>
         </ScrollArea>
     );
