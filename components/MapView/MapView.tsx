@@ -118,6 +118,7 @@ export function MapView() {
         let socket = new WebSocket(url);
         setWebsocket(socket);
         socket.onclose = () => {
+            setMapAgentsData({...mapAgentsData, isBackendConnected: false});
             setTimeout(() => {
                 sub_reconnect(url, next)
             }, BACKEND_SERVER_CONN_TIMEOUT);
@@ -128,7 +129,7 @@ export function MapView() {
             const eventJson = JSON.parse(event.data);
             const agents: Agent[] = eventJson["data"];
             const agent_ids = agents.reduce((acc, ag) => [...acc, ag.id], [] as string[]);
-            setMapAgentsData({activeAgents: agent_ids, agents: agents});
+            setMapAgentsData({isBackendConnected: true, activeAgents: agent_ids, agents: agents});
         }))
     }
 

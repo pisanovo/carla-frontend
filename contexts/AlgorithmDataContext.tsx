@@ -49,6 +49,7 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
         },
 
         mapAgentsData: {
+            isBackendConnected: false,
             activeAgents: [],
             agents: [],
         },
@@ -66,6 +67,7 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
 
         locationCloakingData: {
             locationServer: {ip: "127.0.0.1", port: 8456},
+            connectionStatus: {locationServer: false},
             tileColors: {},
             gridAgentData: {},
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
@@ -90,7 +92,7 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
         useState<CarlaServer>({ip: "127.0.0.1", port: 8200});
 
     const [mapAgentsData, setMapAgentsData] =
-        useState<AgentsData>({activeAgents: [], agents: []});
+        useState<AgentsData>({isBackendConnected: false, activeAgents: [], agents: []});
 
     /** A place for the dummy locations algorithm to store its data */
     const [redundantDummyLocationsData, setRedundantDummyLocationsData] =
@@ -106,6 +108,7 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
     const [locationCloakingData, setLocationCloakingData] =
         useState<LocationCloakingAlgorithmData["data"]>({
             locationServer: {ip: "127.0.0.1", port: 8456},
+            connectionStatus: {locationServer: false},
             tileColors: {},
             gridAgentData: {},
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}

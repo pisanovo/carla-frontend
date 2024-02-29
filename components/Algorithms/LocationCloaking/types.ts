@@ -28,10 +28,15 @@ export type GridAgent = {
     vicinity_radius: number
 }
 
+export type StatusTypes = {
+    locationServer: boolean,
+}
+
 export type LocationCloakingAlgorithmData = {
     data: {
         /** Contains settings for the location server */
         locationServer: LocationServer,
+        connectionStatus: StatusTypes,
         /** A list of per agent colors to be used when drawing grid granules */
         tileColors: Record<string, PositionVicinityColors>,
         /** Contains geo information about the entire grid */

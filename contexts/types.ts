@@ -18,6 +18,8 @@ export type Agent = {
 }
 
 export type AgentsData = {
+    /** Shows whether the frontend is connected to the corresponding frontend backend (agent positions) */
+    isBackendConnected: boolean,
     /** Contains the carla IDs of all active agents */
     activeAgents: string[],
     /** List with the positions of active agents */

@@ -25,6 +25,7 @@ export default function () {
         '#228be6', '#15aabf', '#12b886', '#40c057', '#82c91e', '#fab005', '#fd7e14'];
     /** Save the current websocket connection and create a new one on timeout */
     const [lsWebsocket, setLsWebsocket] = useState<WebSocket>();
+    const [isLsWebsocketCon, setIsLsWebsocketCon] = useState<boolean>(false);
 
     /** Manage algorithm data */
 
@@ -126,6 +127,7 @@ export default function () {
         let socket = new WebSocket(url);
         setLsWebsocket(socket);
         socket.onclose = () => {
+            setIsLsWebsocketCon(false);
             setTimeout(() => {
                 ls_sub_reconnect(url, next)
             }, LOCATION_SERVER_CONN_TIMEOUT);
@@ -133,6 +135,7 @@ export default function () {
 
         // Receive messages from the location server
         socket.addEventListener('message', (event) => next(null, (prev: any) => {
+            setIsLsWebsocketCon(true);
             if(!prev) prev = structuredClone(locationCloakingData);
             return handle_msg(event.data, prev);
         }))
@@ -143,12 +146,13 @@ export default function () {
         'ws://'+locationCloakingData.locationServer.ip+":"+locationCloakingData.locationServer.port+"/observe",
         (key, { next }) => {
             ls_sub_reconnect(key, next);
-            return () => lsWebsocket?.close();
+            return () => {
+                lsWebsocket?.close();
+            }
         }
     );
 
     useEffect(() => {
-
         if (data) {
             const a = {
                 ...locationCloakingData,
@@ -157,10 +161,18 @@ export default function () {
             };
             a.gridAgentData = data.gridAgentData;
             a.gridPlane = data.gridPlane;
-            console.log(a);
             setLocationCloakingData(a)
         }
     }, [data?.gridPlane, data?.gridAgentData]);
+
+    useEffect(() => {
+        console.log("STATUS", isLsWebsocketCon)
+        if (isLsWebsocketCon) {
+            setLocationCloakingData({...locationCloakingData, connectionStatus: {locationServer: true}})
+        } else {
+            setLocationCloakingData({...locationCloakingData, connectionStatus: {locationServer: false}})
+        }
+    }, [isLsWebsocketCon]);
 
 
     /** Algorithm Data Tab */

@@ -13,7 +13,7 @@ import classes from "@/components/SettingsTab/SettingsTab.module.css";
 import {useContext, useMemo, useState} from "react";
 import useSWRSubscription from "swr/subscription";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
-import {IconCircleFilled} from "@tabler/icons-react";
+import {IconAlertTriangle, IconCircleFilled} from "@tabler/icons-react";
 
 export function Settings() {
     const { locationCloakingData, setLocationCloakingData } = useContext(AlgorithmDataContext);
@@ -62,6 +62,26 @@ export function Settings() {
 
     return (
         <div>
+            <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
+                <div>
+                    <Text>Status</Text>
+                    <Text size="xs" c="dimmed">
+                        Shows active connections
+                    </Text>
+                </div>
+                {locationCloakingData.connectionStatus.locationServer &&
+                    <Group gap="4">
+                        <IconCircleFilled style={{color: "green", width: rem(6), height: rem(6) }} />
+                        <Text size="xs">Location Server (online)</Text>
+                    </Group>
+                }
+                {!locationCloakingData.connectionStatus.locationServer &&
+                    <Group gap="4">
+                        <IconCircleFilled style={{color: "red", width: rem(6), height: rem(6) }} />
+                        <Text size="xs">Location Server (offline)</Text>
+                    </Group>
+                }
+            </Group>
             <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
                 <div>
                     <Text>Location Server IP-Address</Text>
@@ -131,7 +151,7 @@ export function Settings() {
                             <Group gap="4">
                                 <Text size="sm">|</Text>
                                 <Space w="2"/>
-                                <IconCircleFilled style={{color: "red", width: rem(9), height: rem(9) }} />
+                                <IconAlertTriangle style={{color: "orange", width: rem(14), height: rem(14) }} />
                                 <Text size="xs">Unsaved changes</Text>
                             </Group>
 

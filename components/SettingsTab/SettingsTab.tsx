@@ -1,4 +1,4 @@
-import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text} from '@mantine/core';
+import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text, rem} from '@mantine/core';
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
 import {Settings as TemporalCloakingSettings} from '../Algorithms/TemporalCloaking/Settings/Settings';
@@ -6,6 +6,7 @@ import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
+import {IconCircleFilled} from "@tabler/icons-react";
 
 export type AlgorithmSettings = {
     settings: any,
@@ -13,8 +14,7 @@ export type AlgorithmSettings = {
 }
 
 export function SettingsTab() {
-    const { settings } = useContext(AlgorithmDataContext);
-
+    const { settings, mapAgentsData } = useContext(AlgorithmDataContext);
     return (
         <ScrollArea  scrollbarSize={4} h="calc(100vh - 16rem)" type="scroll">
             <Stack gap="md">
@@ -25,6 +25,26 @@ export function SettingsTab() {
                     <Text fz="xs" c="dimmed" mt={3} mb="xl">
                         Carla configuration settings
                     </Text>
+                    <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
+                        <div>
+                            <Text>Status</Text>
+                            <Text size="xs" c="dimmed">
+                                Shows active connections
+                            </Text>
+                        </div>
+                        {mapAgentsData.isBackendConnected &&
+                            <Group gap="4">
+                                <IconCircleFilled style={{color: "green", width: rem(6), height: rem(6) }} />
+                                <Text size="xs">Carla Data Stream (online)</Text>
+                            </Group>
+                        }
+                        {!mapAgentsData.isBackendConnected &&
+                            <Group gap="4">
+                                <IconCircleFilled style={{color: "red", width: rem(6), height: rem(6) }} />
+                                <Text size="xs">Carla Data Stream (offline)</Text>
+                            </Group>
+                        }
+                    </Group>
                     <Group justify="space-between" className={classes.item} wrap="nowrap" gap="xl">
                         <div>
                             <Text>Carla IP-Address</Text>
