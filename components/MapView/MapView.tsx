@@ -264,7 +264,6 @@ export function MapView(props: any) {
                     <RedundantDummyLocationsMapView
                         map={map}
                         carla_settings={props.carlaSettings}
-                        algo_data={props.algo.redundantDummyLocationsSettings}
                         onAddLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.push(layer)}
                         onRemoveLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.remove(layer)}
                     />
