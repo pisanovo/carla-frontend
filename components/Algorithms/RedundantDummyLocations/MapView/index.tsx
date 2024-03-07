@@ -9,8 +9,6 @@ import { Point } from "ol/geom";
 
 
 type RedundantDummiesMapViewProps = {
-    map: any,
-    carla_settings: any,
     /** Handler that is called whenever a layer should be added to the map */
     onAddLayer: (layer: Layer) => void,
     /** Handler that is called whenever a layer should be removed from the map */
@@ -41,7 +39,7 @@ export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMa
                 return [baseStyle]
             }
         }), []);
-    
+
     /** Layer that visualizes a dump of the user movement storage */
     const userMovementStorageDumpLayer = useMemo(() =>
         new VectorLayer({
@@ -91,7 +89,7 @@ export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMa
 
     /** Creates a point feature from x and y coordinates */
     const createPoint = (x: number, y: number) => {
-        const location = [ 
+        const location = [
             y,
             x,
         ];
@@ -106,7 +104,7 @@ export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMa
         const newSource = new VectorSource({
             features: redundantDummyLocationsData.locationServerLogs.map((logItem) => createPoint(logItem.location.x, logItem.location.y))
         });
-                
+
         locationBasedServiceLayer.setSource(newSource);
     }, [redundantDummyLocationsData.locationServerLogs, locationBasedServiceLayer])
 
@@ -140,7 +138,7 @@ export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMa
                 // Flatten array to get one list of nodes
                 .reduce((all, current) => all.concat(...current), [])
         });
-                
+
         userMovementStorageDumpLayer.setSource(newSource);
     }, [redundantDummyLocationsData.userMovementStorageDump, userMovementStorageDumpLayer])
 
@@ -174,7 +172,7 @@ export default function MapView({ onAddLayer, onRemoveLayer}: RedundantDummiesMa
                 // Flatten array to get one list of nodes
                 .reduce((all, current) => all.concat(...current), [])
         });
-                
+
         dummyStorageDumpLayer.setSource(newSource);
     }, [redundantDummyLocationsData.dummyStorageDump, dummyStorageDumpLayer])
     return <></>
