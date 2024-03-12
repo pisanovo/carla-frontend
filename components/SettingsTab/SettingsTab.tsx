@@ -1,10 +1,10 @@
 import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text, rem} from '@mantine/core';
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
-import {Settings as TemporalCloakingSettings} from '../Algorithms/TemporalCloaking/Settings/Settings';
 import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import {IconCircleFilled} from "@tabler/icons-react";
 
@@ -94,7 +94,7 @@ export function SettingsTab() {
                 }
 
                 {
-                    settings.selectedAlgorithm === "Temporal cloaking []" &&
+                    settings.selectedAlgorithm ===  TEMPORAL_CLOAKING_ID &&
                     <Card withBorder radius="md" p="xl" className={classes.card}>
                         <Text fz="lg" className={classes.title} fw={500}>
                             Temporal Cloaking
@@ -102,7 +102,7 @@ export function SettingsTab() {
                         <Text fz="xs" c="dimmed" mt={3} mb="xl">
                             Implementation related configuration settings
                         </Text>
-                        <TemporalCloakingSettings />
+                        TBD
                     </Card>
                 }
 

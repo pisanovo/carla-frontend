@@ -1,6 +1,7 @@
 import { RedundantDummLocationsAlgorithmData } from '@/components/Algorithms/RedundantDummyLocations/types';
 import React, {useState, createContext} from 'react';
 import {LocationCloakingAlgorithmData} from "@/components/Algorithms/LocationCloaking/types";
+import {TemporalCloakingAlgorithmData} from "@/components/Algorithms/TemporalCloaking/types";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {AgentsData, CarlaServer} from "@/contexts/types";
 
@@ -25,6 +26,9 @@ export type AlgorithmDataContextType = {
 
     locationCloakingData: LocationCloakingAlgorithmData["data"],
     setLocationCloakingData: LocationCloakingAlgorithmData["setData"],
+
+    temporalCloakingData: TemporalCloakingAlgorithmData["data"],
+    setTemporalCloakingData: TemporalCloakingAlgorithmData["setData"],
     // TODO: Add more algorithms
 }
 
@@ -73,6 +77,15 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
         },
         setLocationCloakingData: () => {},
+
+        temporalCloakingData: {
+            locationServer: {ip: "127.0.0.1", port: 8456},
+            connectionStatus: {locationServer: false},
+            constraint_k: 5,
+            ego_vehicle_id: 7,
+            gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
+        },
+        setTemporalCloakingData: () => {}
     }
     // TODO: Add more algorithms
 )
@@ -114,6 +127,15 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
         });
 
+    const [temporalCloakingData, setTemporalCloakingData] =
+        useState<TemporalCloakingAlgorithmData["data"]>({
+            locationServer: {ip: "127.0.0.1", port: 8456},
+            connectionStatus: {locationServer: false},
+            constraint_k: 5,
+            ego_vehicle_id: 7,
+            gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
+        });
+
     // TODO: Add more algorithms
 
     return <AlgorithmDataContext.Provider
@@ -131,7 +153,9 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             redundantDummyLocationsData,
             setRedundantDummyLocationsData,
             locationCloakingData: locationCloakingData,
-            setLocationCloakingData: setLocationCloakingData
+            setLocationCloakingData: setLocationCloakingData,
+            temporalCloakingData,
+            setTemporalCloakingData,
         }}
     >
         {children}

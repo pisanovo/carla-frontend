@@ -17,11 +17,13 @@ import {
 import {HeaderIndex} from "@/components/Header/HeaderIndex";
 import {Icon123, IconNavigationCode, IconSettings, IconX} from "@tabler/icons-react";
 import LocationCloakingDataTab from "@/components/Algorithms/LocationCloaking/DataTab";
+import TemporalCloakingDataTab from "@/components/Algorithms/TemporalCloaking/DataTab";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
 import {SettingsTab} from "@/components/SettingsTab/SettingsTab";
 import {MapView} from "@/components/MapView/MapView";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 
 export function Root() {
     const { settings } = useContext(AlgorithmDataContext);
@@ -52,6 +54,10 @@ export function Root() {
                                     {
                                         settings.selectedAlgorithm == LOCATION_CLOAKING_ID &&
                                         <LocationCloakingDataTab />
+                                    }
+                                    {
+                                        settings.selectedAlgorithm == TEMPORAL_CLOAKING_ID &&
+                                        <TemporalCloakingDataTab />
                                     }
                                     {
                                         settings.selectedAlgorithm == REDUNDANT_DUMMY_LOCATIONS_ID &&
@@ -110,7 +116,7 @@ export function Root() {
                                 settings.setSelectedAlgorithm(event.currentTarget.value.split(":")[1].trim())}
                             data={[
                                 "Algorithm: " + LOCATION_CLOAKING_ID,
-                                "Algorithm: " + 'Temporal cloaking []',
+                                "Algorithm: " + TEMPORAL_CLOAKING_ID,
                                 "Algorithm: " + REDUNDANT_DUMMY_LOCATIONS_ID,
                                 "Algorithm: " + "Path confusion []"
                             ]}
