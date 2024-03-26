@@ -25,9 +25,11 @@ import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
 import { REDUNDANT_DUMMY_LOCATIONS_ID } from '../Algorithms/RedundantDummyLocations/config';
 import RedundantDummyLocationsMapView from '@/components/Algorithms/RedundantDummyLocations/MapView'
+import PathConfusionMapView from '@/components/Algorithms/PathConfusion/MapView'
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {Agent} from "@/contexts/types";
+import {PATH_CONFUSION_ID} from "@/components/Algorithms/PathConfusion/config";
 
 export function MapView() {
     const { mapAgentsData, setMapAgentsData, settings } = useContext(AlgorithmDataContext);
@@ -36,6 +38,7 @@ export function MapView() {
     const mapRef = useRef<Map>();
     /** Reconnect timeout to location server in ms */
     const BACKEND_SERVER_CONN_TIMEOUT = 4000;
+    const [map, setMap] = useState<Map>();
     /** Save the current websocket connection and create a new one on timeout */
     const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -94,6 +97,11 @@ export function MapView() {
             layers: []
         }), []);
 
+    const pathConfusionLayerGroup = useMemo(() =>
+        new LayerGroup({
+            layers: []
+        }), []);
+
     useEffect(() => {
         const nmap = new Map({
             target: mapRef.current as unknown as HTMLElement,
@@ -105,12 +113,14 @@ export function MapView() {
                 locationCloakingLayerGroup,
                 temporalCloakingLayerGroup,
                 redundantDummiesLayerGroup,
+                pathConfusionLayerGroup
             ],
             view: new View({
                 center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
                 zoom: 15,
             }),
         })
+        setMap(nmap);
     }, []);
 
     // Wrapper for the backend server websocket connection adding reconnect
@@ -205,6 +215,9 @@ export function MapView() {
         if (settings.selectedAlgorithm !== REDUNDANT_DUMMY_LOCATIONS_ID) {
             redundantDummiesLayerGroup?.getLayers().clear();
         }
+        if(settings.selectedAlgorithm !== PATH_CONFUSION_ID) {
+            redundantDummiesLayerGroup?.getLayers().clear();
+        }
     }, [settings.selectedAlgorithm]);
 
     return (
@@ -234,6 +247,14 @@ export function MapView() {
                         // algo_data={props.algo.temporalCloakingSettings}
                         // layers={temporalCloakingLayerGroup.getLayers()}
                     // />
+                }
+                {
+                    settings.selectedAlgorithm === PATH_CONFUSION_ID &&
+                    <PathConfusionMapView
+                        onAddLayer={(layer: Layer) => pathConfusionLayerGroup?.getLayers()?.push(layer)}
+                        onRemoveLayer={(layer: Layer) => pathConfusionLayerGroup?.getLayers()?.remove(layer)}
+                        map={map}
+                    />
                 }
             </div>
     );

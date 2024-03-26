@@ -385,7 +385,6 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
     }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
 
     useEffect(() => {
-        console.log("REDRAW", locationCloakingData.gridPlane);
         gridLayer.getSource()?.clear();
         gridLayer.getSource()?.addFeature(gridBoundingBoxFeature);
         positionGranulesLayer.getSource()?.clear();

@@ -1,30 +1,167 @@
 import {
-    Space,
     Stack,
     Tabs,
-    rem,
-    ScrollArea,
-    Table,
-    ActionIcon,
-    Card,
     Text,
-    TextInput,
-    Group, Divider, Button, Switch, Checkbox, ColorInput, Pill, Badge, HoverCard
+    Group, Divider, Button
 } from "@mantine/core";
-import React from "react";
+import _ from "lodash";
+import React, {useContext, useEffect, useMemo, useState} from "react";
 import classes from './test.module.css';
-import {IconCurrentLocation, IconDeviceFloppy, IconPlayerPlay} from "@tabler/icons-react";
+import PathConfusionVehiclesDataTab from "@/components/Algorithms/PathConfusion/DataTab/VehiclesTab";
+import PathConfusionParametersDataTab from "@/components/Algorithms/PathConfusion/DataTab/ParametersTab";
+import PathConfusionRecordingsDataTab from "@/components/Algorithms/PathConfusion/DataTab/RecordingsTab";
+import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
+import useSWRSubscription from "swr/subscription";
+import {
+    MsgObserverServerGoLive,
+    MsgObserverServerLoadRecording,
+    MsgServerClientReleaseUpdate,
+    MsgServerObserverAvailableRecordings, MsgServerObserverSettingsUpdate, MsgServerObserverVehicles,
+    PathConfusionAlgorithmData
+} from "@/components/Algorithms/PathConfusion/types";
+import {
+    MSG_AVAILABLE_RECORDINGS,
+    MSG_RELEASE_SET_UPDATE,
+    MSG_SETTINGS_UPDATE, MSG_VEHICLES
+} from "@/components/Algorithms/PathConfusion/config";
+import {useDisclosure} from "@mantine/hooks";
 
 export default function () {
+    const {
+        pathConfusionData,
+        setPathConfusionData
+    } = useContext(AlgorithmDataContext);
+
+    /** Reconnect timeout to server in ms */
+    const SERVER_CONN_TIMEOUT = 4000;
+    /** Save the current websocket connection and create a new one on timeout */
+    const [serverWebsocket, setServerWebsocket] = useState<WebSocket>();
+    const [isServerWebsocketCon, setIsServerWebsocketCon] = useState<boolean>(false);
+    const [isSendingGoLiveRequest, setIsSendingGoLiveRequest] = useDisclosure();
+
+    const sendGoLiveRequest = useMemo(() => function () {
+        const ws = new WebSocket("ws://127.0.0.1:8765/command");
+        const msg: MsgObserverServerGoLive = {
+            type: "MsgObserverServerGoLive"
+        }
+        console.log(msg);
+        ws.onmessage = function (msg) {
+            setIsSendingGoLiveRequest.close();
+        }
+        ws.onopen = function () {
+            setIsSendingGoLiveRequest.open();
+            ws.send(JSON.stringify(msg));
+        };
+    }, []);
+
+    const handle_msg_recordings = (part: MsgServerObserverAvailableRecordings, prev: PathConfusionAlgorithmData["data"]) => {
+        console.log("REC", part.fileNames);
+        prev.available_recordings = part.fileNames;
+        return prev;
+    }
+
+    const handle_msg_settings = (part: MsgServerObserverSettingsUpdate, prev: PathConfusionAlgorithmData["data"]) => {
+        if(!_.isEqual(prev.algorithmSettings, part.settings)) {
+            prev.algorithmSettings = part.settings;
+        }
+        if(prev.is_live !== part.isLive) {
+            prev.is_live = part.isLive
+        }
+        return prev;
+    }
+
+    const handle_msg_release_set = (part: MsgServerClientReleaseUpdate, prev: PathConfusionAlgorithmData["data"]) => {
+        if(!_(part.releaseStore).xorWith(prev.releaseEntries, _.isEqual).isEmpty()) {
+            prev.releaseEntries = [...part.releaseStore];
+        }
+        return prev;
+    }
+
+    const handle_msg_vehicles = (part: MsgServerObserverVehicles, prev: PathConfusionAlgorithmData["data"]) => {
+        prev.vehiclesData.available_vehicles = part.availableVehicles;
+        prev.vehiclesData.relevant_vehicles = part.relevantVehicles;
+        return prev;
+    }
+
+    const handle_msg = (data: any, prev: PathConfusionAlgorithmData["data"]) => {
+        const eventJson = JSON.parse(data);
+
+        // Receive message after initialization and update grid plane
+        if (eventJson["type"] == MSG_AVAILABLE_RECORDINGS) {
+            return handle_msg_recordings(eventJson, prev);
+            // Receive message containing full state (only sent once on each new connection)
+        } else if (eventJson["type"] == MSG_SETTINGS_UPDATE) {
+            // return handle_msg_sync(eventJson, prev);
+            return handle_msg_settings(eventJson, prev);
+            // Receive newest update
+        } else if (eventJson["type"] == MSG_RELEASE_SET_UPDATE) {
+            return handle_msg_release_set(eventJson, prev);
+        } else if (eventJson["type"] == MSG_VEHICLES) {
+            // return handle_msg_vehicles(eventJson, prev);
+        }
+
+        return prev;
+    }
+
+    // Wrapper for the location server websocket connection adding reconnect
+    const server_sub_reconnect = function (url: string, next: any) {
+        let socket = new WebSocket(url);
+        setServerWebsocket(socket);
+        socket.onclose = () => {
+            setIsServerWebsocketCon(false);
+            setTimeout(() => {
+                server_sub_reconnect(url, next)
+            }, SERVER_CONN_TIMEOUT);
+        }
+
+        // Receive messages from the location server
+        socket.addEventListener('message', (event) => next(null, (prev: any) => {
+            setIsServerWebsocketCon(true);
+            if(!prev) prev = structuredClone(pathConfusionData);
+            return handle_msg(event.data, prev);
+        }))
+    }
+
+    // Listens to stream of updates from the location server
+    const {data} = useSWRSubscription(
+        'ws://'+pathConfusionData.server.ip+":"+pathConfusionData.server.port+"/observe",
+        (key, { next }) => {
+            server_sub_reconnect(key, next);
+            return () => {
+                serverWebsocket?.close();
+            }
+        }
+    );
+
+    useEffect(() => {
+        if (isServerWebsocketCon) {
+            setPathConfusionData({...pathConfusionData, connectionStatus: {server: true}})
+        } else {
+            setPathConfusionData({...pathConfusionData, connectionStatus: {server: false}})
+        }
+    }, [isServerWebsocketCon]);
+
+    useEffect(() => {
+        if(data) {
+            setPathConfusionData({
+                ...pathConfusionData,
+                algorithmSettings: data.algorithmSettings,
+                releaseEntries: data.releaseEntries,
+                available_recordings: data.available_recordings,
+                is_live: data.is_live
+            })
+        }
+    }, [data?.algorithmSettings, data?.releaseEntries, data?.available_recordings, data?.is_live]);
+
     return (
         <>
             <Stack>
                 <Tabs color="gray" variant="unstyled" defaultValue="recordings" classNames={classes} mb={0}>
                     <Tabs.List grow>
-                        <Tabs.Tab value="data">
+                        <Tabs.Tab value="vehicles">
                             Vehicles
                         </Tabs.Tab>
-                        <Tabs.Tab value="settings">
+                        <Tabs.Tab value="parameters">
                             Parameters
                         </Tabs.Tab>
                         <Tabs.Tab value="recordings">
@@ -32,251 +169,39 @@ export default function () {
                         </Tabs.Tab>
                     </Tabs.List>
 
-                    <Tabs.Panel value="data">
-                        <Space h="md"/>
-                        <ScrollArea  scrollbarSize={4} h="calc(100vh - 23.2rem)" type="scroll">
-                            <Card withBorder radius="md" padding="lg" className={classes.card}>
-                                <Group justify="space-between">
-                                    <Stack gap="0">
-                                        <Text fz="md" className={classes.title}>
-                                            Vehicle Information
-                                        </Text>
-                                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                                            Select a release entry on the map to view detailed information
-                                        </Text>
-                                    </Stack>
-                                    {/*<ActionIcon variant="default" size="lg" mt={-35}>*/}
-                                    {/*    <IconDeviceFloppy stroke={1.25} style={{ width: rem(20), height: rem(20)}} />*/}
-                                    {/*</ActionIcon>*/}
-                                </Group>
-
-                                <Group gap="xs">
-                                    <Badge color="indigo">ID: 140</Badge>
-                                    <Badge color="blue">Uncertainty: 0.22 / 0.3</Badge>
-                                    <Badge color="blue">TTC in: 144s</Badge>
-                                </Group>
-                            </Card>
-                            <Space h="md"/>
-                            <Table highlightOnHover>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th style={{ width: rem(40) }}>Active</Table.Th>
-                                        <Table.Th style={{ width: rem(300) }}>Vehicle ID</Table.Th>
-                                        <Table.Th style={{ width: rem(140) }}>
-
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    <Table.Tr>
-                                        <Table.Th>
-                                            <Checkbox
-                                                defaultChecked
-                                            />
-                                        </Table.Th>
-                                        <Table.Th>140</Table.Th>
-                                        <Table.Th>
-                                            <ColorInput defaultValue="#C5D899" />
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>
-                                            <Checkbox
-                                                defaultChecked
-                                            />
-                                        </Table.Th>
-                                        <Table.Th>141</Table.Th>
-                                        <Table.Th>
-                                            <ColorInput defaultValue="#C5D899" />
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Tbody>
-                            </Table>
-                            <Space h="md"/>
-                            <Group justify="flex-end">
-                                <HoverCard shadow="md" withArrow position="left">
-                                    <HoverCard.Target>
-                                        <Button variant="default" >
-                                            Apply
-                                        </Button>
-                                    </HoverCard.Target>
-                                    <HoverCard.Dropdown h={30}>
-                                        <Text size="xs" mt={-5}>
-                                            Change the active set of vehicles
-                                        </Text>
-                                    </HoverCard.Dropdown>
-                                </HoverCard>
-                            </Group>
-                            <Space h="xl"/>
-                        </ScrollArea>
+                    <Tabs.Panel value="vehicles">
+                        <PathConfusionVehiclesDataTab />
                     </Tabs.Panel>
 
-                    <Tabs.Panel value="settings">
-                        <Space h="md"/>
-                        <ScrollArea  scrollbarSize={4} h="calc(100vh - 23.2rem)" type="scroll" offsetScrollbars>
-                            <Table highlightOnHover>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th style={{ width: rem(250) }}>Property </Table.Th>
-                                        <Table.Th>
-
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    <Table.Tr>
-                                        <Table.Th>Vehicle update rate</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Time interval</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Time to confusion</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Reacquisition time window</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>µ (Mue)</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>k Anonymity</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Trip timeout</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Uncertainty threshold</Table.Th>
-                                        <Table.Th>
-                                            <TextInput placeholder="Loading... (waiting for server)"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Tbody>
-                            </Table>
-                            <Space h="md"/>
-                            <Table highlightOnHover>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Extensions</Table.Th>
-                                        <Table.Th style={{ width: rem(40) }}>
-
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    <Table.Tr>
-                                        <Table.Th>Apply location cloaking extension</Table.Th>
-                                        <Table.Th>
-                                            <Switch mt={10} mb={10} color="indigo"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>Apply windowing extension</Table.Th>
-                                        <Table.Th>
-                                            <Switch mt={10} mb={10} color="indigo"/>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Tbody>
-                            </Table>
-                            <Space h="md"/>
-                            <Group justify="flex-end">
-                                <Button variant="default" >
-                                    Apply
-                                </Button>
-                            </Group>
-                            <Space h="xl"/>
-
-                        </ScrollArea>
+                    <Tabs.Panel value="parameters">
+                        <PathConfusionParametersDataTab />
                     </Tabs.Panel>
 
                     <Tabs.Panel value="recordings">
-                        <Space h="md"/>
-                        <ScrollArea  scrollbarSize={4} h="calc(100vh - 23.2rem)" type="scroll">
-                            <Card withBorder radius="md" padding="lg" className={classes.card}>
-                                <Group justify="space-between">
-                                    <Stack gap="0">
-                                        <Text fz="md" className={classes.title}>
-                                            Save Recording
-                                        </Text>
-                                        <Text fz="xs" c="dimmed" mt={3} mb="xl">
-                                            Store the algorithm state to disk
-                                        </Text>
-                                    </Stack>
-                                    <ActionIcon variant="default" size="lg" mt={-35}>
-                                        <IconDeviceFloppy stroke={1.25} style={{ width: rem(20), height: rem(20)}} />
-                                    </ActionIcon>
-                                </Group>
-
-                                <TextInput
-                                    placeholder="Recording name"
-                                />
-                            </Card>
-                            <Space h="md"/>
-                            <Table highlightOnHover>
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Recording Name</Table.Th>
-                                        <Table.Th style={{ width: rem(30) }}></Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    <Table.Tr>
-                                        <Table.Th>1711135813_Presentation_Scenario_A.dump</Table.Th>
-                                        <Table.Th>
-                                            <ActionIcon variant="transparent" color="gray">
-                                                <IconPlayerPlay style={{ width: rem(20), height: rem(20) }}/>
-                                            </ActionIcon>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                    <Table.Tr>
-                                        <Table.Th>1711135656_Presentation_Scenario_B.dump</Table.Th>
-                                        <Table.Th>
-                                            <ActionIcon variant="transparent" color="gray">
-                                                <IconPlayerPlay style={{ width: rem(20), height: rem(20) }}/>
-                                            </ActionIcon>
-                                        </Table.Th>
-                                    </Table.Tr>
-                                </Table.Tbody>
-                            </Table>
-                        </ScrollArea>
+                        <PathConfusionRecordingsDataTab />
                     </Tabs.Panel>
                 </Tabs>
-                <Stack mt={0} ml={6}>
-                    <Divider my="xs" mb={0} mt={0}  />
-                    <Group justify="space-between" mt={-4}>
-                        <Group>
-                            <Divider size="xl" orientation="vertical" color="#453328" h={20} />
-                            <Text fz="sm" className={classes.title}>
-                                You are currently viewing a recording
-                            </Text>
+                {
+                    !pathConfusionData.is_live && <Stack mt={0} ml={6}>
+                        <Divider my="xs" mb={0} mt={0}  />
+                        <Group justify="space-between" mt={-4}>
+                            <Group>
+                                <Divider size="xl" orientation="vertical" color="#453328" h={20} />
+                                <Text fz="sm" className={classes.title}>
+                                    You are currently viewing a recording
+                                </Text>
+                            </Group>
+                            <Button
+                                variant="light"
+                                color="orange"
+                                size="xs"
+                                onClick={(event) => sendGoLiveRequest()}
+                                loading={isSendingGoLiveRequest}
+                            >Exit recording</Button>
                         </Group>
-                        <Button variant="light" color="orange" size="xs">Exit recording</Button>
-                    </Group>
-                </Stack>
-
+                    </Stack>
+                }
             </Stack>
-
         </>
     )
 }
