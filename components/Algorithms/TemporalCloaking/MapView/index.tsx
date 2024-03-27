@@ -16,7 +16,7 @@ type TemporalCloakingMapViewProps = {
 }
 
 type CarData = {
-    id: string,
+    id: number,
     x: number,
     y: number
 }
@@ -28,8 +28,10 @@ const lat_max = 48.75670065;
 const lat_dif = lat_max-lat_min;
 const lon_dif = lat_dif/ Math.cos((lat_min * Math.PI) / 180);
 
+var init_flag=0;
+
 export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProps) {
-    const {mapAgentsData, temporalCloakingData} = useContext(AlgorithmDataContext);
+    const {mapAgentsData, temporalCloakingData, setTemporalCloakingData} = useContext(AlgorithmDataContext);
 
     /** Layer that visualizes the grid, initially contains the red area grid bounding box  */
     const gridLayer = new VectorLayer({
@@ -51,13 +53,21 @@ export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProp
             zIndex: 1
         })
 
-    /** Style of grid */
-    const style_grid = new Style({
-            stroke: new Stroke({
-                width: 2,
-                color: "#0B75FF"
-            })
+    /** Style of result grid */
+    const style_grid_1 = new Style({
+        stroke: new Stroke({
+            width: 2.5,
+            color: "#0B75FF"
         })
+    })
+    /** Style of grey grid */
+    const style_grid_2 = new Style({
+        stroke: new Stroke({
+            width: 1.5,
+            color: "#808080",
+            lineDash: [4, 4]
+        })
+    })
 
     /** Style of ego vehicle */
     const car_style_1 = new Style({
@@ -89,31 +99,41 @@ export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProp
         }
     }, [onAddLayer, onRemoveLayer]);
 
-    // draw grids
-    // useEffect(() => {
-    //     const rect_feature = new Feature({
-    //         geometry: new Polygon([[
-    //             [lon_min, lat_min],
-    //             [lon_min, lat_min+lat_dif],
-    //             [lon_min+lon_dif, lat_min+lat_dif],
-    //             [lon_min+lon_dif, lat_min],
-    //             [lon_min, lat_min]
-    //         ]]).transform('EPSG:4326', 'EPSG:3857')
-    //     });
-    //     rect_feature.setStyle(rect_style);
-    //     const newSource = new VectorSource({
-    //         features: [rect_feature]
-    //     });
-    //     gridLayer.setSource(newSource);
-    // }, []);
+    /** iterate over carla vehicle ids to get total number and ids of vehicles */
+    useEffect(() => {
+        var carID_min=-1, carID_max=-1, carID, car_num=0;
+        var arrayTo;
+        
+        if(init_flag<3){
+            mapAgentsData.activeAgents.forEach((ag_id) => {
+                arrayTo = ag_id.split("-"); 
+                carID = +arrayTo[1];
+        
+                if(carID_min==-1) carID_min = carID;
+                if(carID_max==-1) carID_max = carID;
+                if(carID < carID_min) carID_min = carID;
+                else if(carID > carID_max) carID_max = carID;
+                car_num++;
+            })
+            if(temporalCloakingData.total_vehicles==car_num) init_flag++;
+            const newData = temporalCloakingData
+            newData.total_vehicles = car_num
+            newData.id_min = carID_min
+            newData.id_max = carID_max
+            newData.ego_vehicle_id = temporalCloakingData.id_min
+            setTemporalCloakingData(newData)
+        }
+    }, [mapAgentsData, temporalCloakingData]);
+
 
     // Draw the exact vicinity circle at agent positions to better understand the algorithm
     useEffect(() => {
-        var car_cnt = 0; //total 15 cars
+        var car_cnt = 0; // iterate over every car
         var newSource;
         var polygon;
         var new_feature;
 
+        var ego_index = 0;
         var quadrant_lat, quadrant_lon;
         var cur_quadrant_lon_min, cur_quadrant_lat_min, cur_quadrant_lon_max, cur_quadrant_lat_max;
         var prev_quadrant_lon_min, prev_quadrant_lat_min, prev_quadrant_lon_max, prev_quadrant_lat_max;
@@ -123,149 +143,160 @@ export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProp
         var feature_grid;
         var newSource_grid;
 
-        for(let i=0;i<15; i++){
-            const tmp: CarData = {
-                id: "",
-                x: 0,
-                y: 0
-            };
-            cars_position.push(tmp);
-        }
+        var arrayTo;
 
-        mapAgentsData.agents.forEach((ag) => {
+        if(init_flag==3){
 
-            // let vicinityFeature = vicinityShapeLayer.getSource()?.getFeatureById(ag.id);
-
-            // const vicinityCircle = circular(
-            //     [ag.location.y, ag.location.x],
-            //     5
-            // ).transform('EPSG:4326', 'EPSG:3857')
-
-            // // If agent vicinity circle already drawn on map, just update
-            // if (vicinityFeature) {
-            //     vicinityFeature.setGeometry(vicinityCircle);
-            // // Create new vicinity circle feature otherwise
-            // } else {
-            //     vicinityFeature = new Feature({
-            //         name: ag.id,
-            //         geometry: vicinityCircle
-            //     });
-            //     vicinityFeature.setId(ag.id);
-            //     vicinityFeature.setStyle(vicinityCircleStyle);
-            //     vicinityShapeLayer.getSource()?.addFeature(vicinityFeature);
-            // }
-
-            /** show all vehicles' position, each vehicle shown as a circle */
-            if(car_cnt==0){
-                newSource = new VectorSource({
-                    features: []
-                });
-                vicinityShapeLayer?.setSource(newSource);
+            for(let i=0;i<temporalCloakingData.total_vehicles; i++){
+                const tmp: CarData = {
+                    id: 0,
+                    x: 0,
+                    y: 0
+                };
+                cars_position.push(tmp);
             }
-            polygon = circular([ag.location.y, ag.location.x],10).transform('EPSG:4326', 'EPSG:3857')
-            new_feature = new Feature({
-                geometry: polygon
-            });
-            if((car_cnt)==temporalCloakingData.ego_vehicle_id-1) new_feature.setStyle(car_style_1); // ego car
-            else new_feature.setStyle(car_style_2); // other cars
-            vicinityShapeLayer?.getSource()?.addFeature(new_feature);
-
-            /** save all vehicles' position for further calculation */
-            cars_position[car_cnt]['x'] = ag.location.x;
-            cars_position[car_cnt]['y'] = ag.location.y;
-
-            if(car_cnt<14){
-                car_cnt++;
-            }else{
-                car_cnt = 0;
-                /** algorithm calculate which grid is disclosed for the ego vehicle */
-                quadrant_lat = lat_dif;
-                quadrant_lon = lon_dif;
-                cur_quadrant_lon_min = lon_min;
-                cur_quadrant_lon_max = lon_min+quadrant_lon;
-                cur_quadrant_lat_min = lat_min;
-                cur_quadrant_lat_max = lat_min+quadrant_lat;
-                prev_quadrant_lon_min = lon_min;
-                prev_quadrant_lon_max = lon_min+quadrant_lon;
-                prev_quadrant_lat_min = lat_min;
-                prev_quadrant_lat_max = lat_min+quadrant_lat;
-                /** number of vehicles in vicinity of ego vehicle */
-                vicinity_cnt = 0;
-
-                for(var step=0; step<7; step++){ //devide quadrant into smaller quadrants
+    
+            mapAgentsData.agents.forEach((ag) => {
+    
+                /** save all vehicles' info for further calculation */
+                arrayTo = ag.id;
+                arrayTo = arrayTo.split("-");
+                cars_position[car_cnt]['id'] = +arrayTo[1];
+                cars_position[car_cnt]['x'] = ag.location.x;
+                cars_position[car_cnt]['y'] = ag.location.y;
+    
+                /** show all vehicles' position, each vehicle shown as a circle */
+                if(car_cnt==0){
+                    newSource = new VectorSource({
+                        features: []
+                    });
+                    vicinityShapeLayer?.setSource(newSource);
+                }
+                polygon = circular([ag.location.y, ag.location.x],10).transform('EPSG:4326', 'EPSG:3857')
+                new_feature = new Feature({
+                    geometry: polygon
+                });
+                if(cars_position[car_cnt]['id']==temporalCloakingData.ego_vehicle_id) new_feature.setStyle(car_style_1); // ego vehicle
+                else new_feature.setStyle(car_style_2); // other vehicles
+                vicinityShapeLayer?.getSource()?.addFeature(new_feature);
+    
+    
+                if(car_cnt<temporalCloakingData.total_vehicles-1){
+                    car_cnt++;
+                }else{
+                    car_cnt = 0;
+                    /** algorithm calculate which grid is disclosed for the ego vehicle */
+                    quadrant_lat = lat_dif;
+                    quadrant_lon = lon_dif;
+                    cur_quadrant_lon_min = lon_min;
+                    cur_quadrant_lon_max = lon_min+quadrant_lon;
+                    cur_quadrant_lat_min = lat_min;
+                    cur_quadrant_lat_max = lat_min+quadrant_lat;
+                    prev_quadrant_lon_min = lon_min;
+                    prev_quadrant_lon_max = lon_min+quadrant_lon;
+                    prev_quadrant_lat_min = lat_min;
+                    prev_quadrant_lat_max = lat_min+quadrant_lat;
+                    /** number of vehicles in vicinity of ego vehicle */
                     vicinity_cnt = 0;
-                    for(var i=0; i<15; i++){ //count vehicles in quadrant
-                        if(i!=temporalCloakingData.ego_vehicle_id-1){
-                            if(cars_position[i]['y'] >= cur_quadrant_lon_min && cars_position[i]['y'] <= cur_quadrant_lon_max && cars_position[i]['x'] >= cur_quadrant_lat_min && cars_position[i]['x'] <= cur_quadrant_lat_max){
-                                vicinity_cnt++;
-                            }
-                        } 
+    
+                    newSource_grid = new VectorSource({
+                        features: []
+                    });
+                    gridLayer?.setSource(newSource_grid);
+    
+                    for(var step=0; step<7; step++){ //devide quadrant into smaller quadrants
+                        vicinity_cnt = 0;
+                        /** draw current quadrant, show intermediate step */
+                        polygon_grid = new Polygon([[
+                            [cur_quadrant_lon_min, cur_quadrant_lat_min],
+                            [cur_quadrant_lon_min, cur_quadrant_lat_max],
+                            [cur_quadrant_lon_max, cur_quadrant_lat_max],
+                            [cur_quadrant_lon_max, cur_quadrant_lat_min],
+                            [cur_quadrant_lon_min, cur_quadrant_lat_min]]]).transform('EPSG:4326', 'EPSG:3857')
+                        feature_grid = new Feature({
+                            geometry: polygon_grid
+                        });
+                        feature_grid.setStyle(style_grid_2);
+                        gridLayer?.getSource()?.addFeature(feature_grid);
+    
+                        for(var i=0; i<temporalCloakingData.total_vehicles; i++){ //count vehicles in quadrant
+                            if(i!=temporalCloakingData.ego_vehicle_id-1){
+                                if(cars_position[i]['y'] >= cur_quadrant_lon_min && cars_position[i]['y'] <= cur_quadrant_lon_max && cars_position[i]['x'] >= cur_quadrant_lat_min && cars_position[i]['x'] <= cur_quadrant_lat_max){
+                                    vicinity_cnt++;
+                                }
+                            } 
+                        }
+        
+                        /** constraint k is fullfilled, the algorithm ends */
+                        if(vicinity_cnt<temporalCloakingData.constraint_k) break;
+        
+                        /** find the index of ego vehicle */
+                        for(let k=0;k<temporalCloakingData.total_vehicles; k++){
+                            if(cars_position[k]['id']==temporalCloakingData.ego_vehicle_id) ego_index = k;
+                        }
+                        /** find out which sub quadrant ego vehicle is in */
+                        quadrant_lat = quadrant_lat/2.000;
+                        quadrant_lon = quadrant_lon/2.000;
+                        if(cars_position[ego_index]['y'] <= cur_quadrant_lon_min+quadrant_lon && cars_position[ego_index]['x'] <= cur_quadrant_lat_min+quadrant_lat){
+                            prev_quadrant_lon_max = cur_quadrant_lon_max;
+                            cur_quadrant_lon_max = cur_quadrant_lon_min+quadrant_lon;
+        
+                            prev_quadrant_lat_max = cur_quadrant_lat_max;
+                            cur_quadrant_lat_max = cur_quadrant_lat_min+quadrant_lat;
+        
+                            prev_quadrant_lon_min = cur_quadrant_lon_min;
+                            prev_quadrant_lat_min = cur_quadrant_lat_min;
+                        }
+                        else if(cars_position[ego_index]['y'] <= cur_quadrant_lon_min+quadrant_lon && cars_position[ego_index]['x'] >= cur_quadrant_lat_min+quadrant_lat){
+                            prev_quadrant_lon_max = cur_quadrant_lon_max;
+                            cur_quadrant_lon_max = cur_quadrant_lon_min+quadrant_lon;
+        
+                            prev_quadrant_lat_min = cur_quadrant_lat_min;
+                            cur_quadrant_lat_min = cur_quadrant_lat_min+quadrant_lat;
+        
+                            prev_quadrant_lon_min = cur_quadrant_lon_min;
+                            prev_quadrant_lat_max = cur_quadrant_lat_max;
+                        }
+                        else if(cars_position[ego_index]['y'] >= cur_quadrant_lon_min+quadrant_lon && cars_position[ego_index]['x'] <= cur_quadrant_lat_min+quadrant_lat){
+                            prev_quadrant_lon_min = cur_quadrant_lon_min;
+                            cur_quadrant_lon_min = cur_quadrant_lon_min+quadrant_lon;
+        
+                            prev_quadrant_lat_max = cur_quadrant_lat_max;
+                            cur_quadrant_lat_max = cur_quadrant_lat_min+quadrant_lat;
+        
+                            prev_quadrant_lon_max = cur_quadrant_lon_max;
+                            prev_quadrant_lat_min = cur_quadrant_lat_min;
+                        }
+                        else if(cars_position[ego_index]['y'] >= cur_quadrant_lon_min+quadrant_lon && cars_position[ego_index]['x'] >= cur_quadrant_lat_min+quadrant_lat){
+                            prev_quadrant_lon_min = cur_quadrant_lon_min;
+                            cur_quadrant_lon_min = cur_quadrant_lon_min+quadrant_lon;
+        
+                            prev_quadrant_lat_min = cur_quadrant_lat_min;
+                            cur_quadrant_lat_min = cur_quadrant_lat_min+quadrant_lat;
+        
+                            prev_quadrant_lon_max = cur_quadrant_lon_max;
+                            prev_quadrant_lat_max = cur_quadrant_lat_max;
+                        }
                     }
-    
-                    if(vicinity_cnt<temporalCloakingData.constraint_k) break;
-    
-                    quadrant_lat = quadrant_lat/2.000;
-                    quadrant_lon = quadrant_lon/2.000;
-                    if(cars_position[temporalCloakingData.ego_vehicle_id-1]['y'] <= cur_quadrant_lon_min+quadrant_lon && cars_position[temporalCloakingData.ego_vehicle_id-1]['x'] <= cur_quadrant_lat_min+quadrant_lat){
-                        prev_quadrant_lon_max = cur_quadrant_lon_max;
-                        cur_quadrant_lon_max = cur_quadrant_lon_min+quadrant_lon;
-    
-                        prev_quadrant_lat_max = cur_quadrant_lat_max;
-                        cur_quadrant_lat_max = cur_quadrant_lat_min+quadrant_lat;
-    
-                        prev_quadrant_lon_min = cur_quadrant_lon_min;
-                        prev_quadrant_lat_min = cur_quadrant_lat_min;
-                    }
-                    else if(cars_position[temporalCloakingData.ego_vehicle_id-1]['y'] <= cur_quadrant_lon_min+quadrant_lon && cars_position[temporalCloakingData.ego_vehicle_id-1]['x'] >= cur_quadrant_lat_min+quadrant_lat){
-                        prev_quadrant_lon_max = cur_quadrant_lon_max;
-                        cur_quadrant_lon_max = cur_quadrant_lon_min+quadrant_lon;
-    
-                        prev_quadrant_lat_min = cur_quadrant_lat_min;
-                        cur_quadrant_lat_min = cur_quadrant_lat_min+quadrant_lat;
-    
-                        prev_quadrant_lon_min = cur_quadrant_lon_min;
-                        prev_quadrant_lat_max = cur_quadrant_lat_max;
-                    }
-                    else if(cars_position[temporalCloakingData.ego_vehicle_id-1]['y'] >= cur_quadrant_lon_min+quadrant_lon && cars_position[temporalCloakingData.ego_vehicle_id-1]['x'] <= cur_quadrant_lat_min+quadrant_lat){
-                        prev_quadrant_lon_min = cur_quadrant_lon_min;
-                        cur_quadrant_lon_min = cur_quadrant_lon_min+quadrant_lon;
-    
-                        prev_quadrant_lat_max = cur_quadrant_lat_max;
-                        cur_quadrant_lat_max = cur_quadrant_lat_min+quadrant_lat;
-    
-                        prev_quadrant_lon_max = cur_quadrant_lon_max;
-                        prev_quadrant_lat_min = cur_quadrant_lat_min;
-                    }
-                    else if(cars_position[temporalCloakingData.ego_vehicle_id-1]['y'] >= cur_quadrant_lon_min+quadrant_lon && cars_position[temporalCloakingData.ego_vehicle_id-1]['x'] >= cur_quadrant_lat_min+quadrant_lat){
-                        prev_quadrant_lon_min = cur_quadrant_lon_min;
-                        cur_quadrant_lon_min = cur_quadrant_lon_min+quadrant_lon;
-    
-                        prev_quadrant_lat_min = cur_quadrant_lat_min;
-                        cur_quadrant_lat_min = cur_quadrant_lat_min+quadrant_lat;
-    
-                        prev_quadrant_lon_max = cur_quadrant_lon_max;
-                        prev_quadrant_lat_max = cur_quadrant_lat_max;
-                    }
+        
+                    /** show the result of algorithm(the grid disclosed to users) */
+                    polygon_grid = new Polygon([[
+                        [prev_quadrant_lon_min, prev_quadrant_lat_min],
+                        [prev_quadrant_lon_min, prev_quadrant_lat_max],
+                        [prev_quadrant_lon_max, prev_quadrant_lat_max],
+                        [prev_quadrant_lon_max, prev_quadrant_lat_min],
+                        [prev_quadrant_lon_min, prev_quadrant_lat_min]]]).transform('EPSG:4326', 'EPSG:3857')
+                    feature_grid = new Feature({
+                        geometry: polygon_grid
+                    });
+                    feature_grid.setStyle(style_grid_1);
+                    gridLayer?.getSource()?.addFeature(feature_grid);
                 }
     
-                polygon_grid = new Polygon([[
-                    [prev_quadrant_lon_min, prev_quadrant_lat_min],
-                    [prev_quadrant_lon_min, prev_quadrant_lat_max],
-                    [prev_quadrant_lon_max, prev_quadrant_lat_max],
-                    [prev_quadrant_lon_max, prev_quadrant_lat_min],
-                    [prev_quadrant_lon_min, prev_quadrant_lat_min]]]).transform('EPSG:4326', 'EPSG:3857')
-                feature_grid = new Feature({
-                    geometry: polygon_grid
-                });
-                feature_grid.setStyle(style_grid);
-                newSource_grid = new VectorSource({
-                    features: [feature_grid]
-                });
-                gridLayer?.setSource(newSource_grid);
-            }
-
-        })
-    }, [mapAgentsData.agents]);
+            })
+        }
+        
+    }, [mapAgentsData]);
 
     return <></>
 }

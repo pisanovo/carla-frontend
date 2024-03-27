@@ -31,8 +31,11 @@ export type TemporalCloakingAlgorithmData = {
         constraint_k: number,
         // id of ego vehicle for algorithm
         ego_vehicle_id: number,
-        /** Contains geo information about the entire grid */
-        gridPlane: GridPlane,
+        // total number of vehicles
+        total_vehicles: number,
+        // range of vehicle carla id
+        id_min: number,
+        id_max: number
     },
     setData: (newData: TemporalCloakingAlgorithmData["data"]) => void
 }

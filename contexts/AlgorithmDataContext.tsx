@@ -82,8 +82,10 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
             locationServer: {ip: "127.0.0.1", port: 8456},
             connectionStatus: {locationServer: false},
             constraint_k: 5,
-            ego_vehicle_id: 7,
-            gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
+            ego_vehicle_id: 0,
+            total_vehicles: 0,
+            id_min: 0,
+            id_max: 0
         },
         setTemporalCloakingData: () => {}
     }
@@ -132,8 +134,10 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             locationServer: {ip: "127.0.0.1", port: 8456},
             connectionStatus: {locationServer: false},
             constraint_k: 5,
-            ego_vehicle_id: 7,
-            gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
+            ego_vehicle_id: 0,
+            total_vehicles: 0,
+            id_min: 0,
+            id_max: 0
         });
 
     // TODO: Add more algorithms
