@@ -1,7 +1,6 @@
 import {
     ActionIcon,
-    Anchor,
-    Card, ColorInput,
+    Card,
     Group,
     rem,
     ScrollArea,
@@ -10,10 +9,9 @@ import {
     Table,
     Text,
     TextInput,
-    Tooltip
 } from "@mantine/core";
 import classes from "@/components/Algorithms/PathConfusion/DataTab/test.module.css";
-import {IconChartArcs3, IconCurrentLocation, IconDeviceFloppy, IconPlayerPlay, IconTrash} from "@tabler/icons-react";
+import {IconDeviceFloppy, IconPlayerPlay, IconTrash} from "@tabler/icons-react";
 import React, {useContext, useMemo, useState} from "react";
 import {
     MsgObserverServerAddRecording, MsgObserverServerDeleteRecording,
@@ -21,13 +19,15 @@ import {
 } from "@/components/Algorithms/PathConfusion/types";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {useDisclosure} from "@mantine/hooks";
-import Union from "ajv/lib/vocabularies/jtd/union";
 
 export default function () {
     const {pathConfusionData, setPathConfusionData} = useContext(AlgorithmDataContext);
 
+    /** Used to detect whenever the user is currently requesting to play a recording */
     const [isSendingRecRequest, setIsSendingRecRequest] = useDisclosure();
+    /** Used to detect whenever the user is currently requesting to add or delete a recording */
     const [isSendingLoadDelRecRequest, setIsSendingLoadDelRecRequest] = useDisclosure();
+    /** Stores the user chosen file name when saving a new recording */
     const [fileName, setFileName] = useState('');
 
     const sendAddRecordingRequest = useMemo(() => function (name: string) {
@@ -69,6 +69,7 @@ export default function () {
         };
     }, []);
 
+    // Rows displaying available recordings with delete and play buttons
     const rows = pathConfusionData.available_recordings.map((fileName: string) => (
         <Table.Tr key={fileName}>
             <Table.Th>{fileName}</Table.Th>

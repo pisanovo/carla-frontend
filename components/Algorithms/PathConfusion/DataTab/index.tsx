@@ -14,7 +14,6 @@ import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import useSWRSubscription from "swr/subscription";
 import {
     MsgObserverServerGoLive,
-    MsgObserverServerLoadRecording,
     MsgServerClientReleaseUpdate,
     MsgServerObserverAvailableRecordings, MsgServerObserverSettingsUpdate, MsgServerObserverVehicles,
     PathConfusionAlgorithmData
@@ -36,7 +35,9 @@ export default function () {
     const SERVER_CONN_TIMEOUT = 4000;
     /** Save the current websocket connection and create a new one on timeout */
     const [serverWebsocket, setServerWebsocket] = useState<WebSocket>();
+    /** Save the current connection status */
     const [isServerWebsocketCon, setIsServerWebsocketCon] = useState<boolean>(false);
+    /** Used to detect whenever the user is currently requesting to close a recording */
     const [isSendingGoLiveRequest, setIsSendingGoLiveRequest] = useDisclosure();
 
     const sendGoLiveRequest = useMemo(() => function () {
@@ -44,7 +45,6 @@ export default function () {
         const msg: MsgObserverServerGoLive = {
             type: "MsgObserverServerGoLive"
         }
-        console.log(msg);
         ws.onmessage = function (msg) {
             setIsSendingGoLiveRequest.close();
         }
@@ -55,15 +55,16 @@ export default function () {
     }, []);
 
     const handle_msg_recordings = (part: MsgServerObserverAvailableRecordings, prev: PathConfusionAlgorithmData["data"]) => {
-        console.log("REC", part.fileNames);
         prev.available_recordings = part.fileNames;
         return prev;
     }
 
     const handle_msg_settings = (part: MsgServerObserverSettingsUpdate, prev: PathConfusionAlgorithmData["data"]) => {
+        // Check if newly received algorithm settings are different
         if(!_.isEqual(prev.algorithmSettings, part.settings)) {
             prev.algorithmSettings = part.settings;
         }
+        // Check if location server is now playing a recording or actively collecting new data (live)
         if(prev.is_live !== part.isLive) {
             prev.is_live = part.isLive
         }
@@ -71,6 +72,7 @@ export default function () {
     }
 
     const handle_msg_release_set = (part: MsgServerClientReleaseUpdate, prev: PathConfusionAlgorithmData["data"]) => {
+        // Update the release store whenever a change with the current store occurred
         if(!_(part.releaseStore).xorWith(prev.releaseEntries, _.isEqual).isEmpty()) {
             prev.releaseEntries = [...part.releaseStore];
         }
@@ -89,11 +91,10 @@ export default function () {
         // Receive message after initialization and update grid plane
         if (eventJson["type"] == MSG_AVAILABLE_RECORDINGS) {
             return handle_msg_recordings(eventJson, prev);
-            // Receive message containing full state (only sent once on each new connection)
+        // Receive message containing full state (only sent once on each new connection)
         } else if (eventJson["type"] == MSG_SETTINGS_UPDATE) {
-            // return handle_msg_sync(eventJson, prev);
             return handle_msg_settings(eventJson, prev);
-            // Receive newest update
+        // Receive newest update
         } else if (eventJson["type"] == MSG_RELEASE_SET_UPDATE) {
             return handle_msg_release_set(eventJson, prev);
         } else if (eventJson["type"] == MSG_VEHICLES) {
@@ -133,6 +134,7 @@ export default function () {
         }
     );
 
+    // Toggle whenever a connection to the location server is established/closed
     useEffect(() => {
         if (isServerWebsocketCon) {
             setPathConfusionData({...pathConfusionData, connectionStatus: {server: true}})
@@ -141,6 +143,7 @@ export default function () {
         }
     }, [isServerWebsocketCon]);
 
+    // Update path confusion data store whenever new data is received
     useEffect(() => {
         if(data) {
             setPathConfusionData({

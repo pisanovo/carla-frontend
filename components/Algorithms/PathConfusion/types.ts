@@ -22,11 +22,15 @@ export type CarlaVehicleData =  {
 
 export type IntervalVehicleEntry = {
     id: string,
+    // Last time the uncertainty was larger than the provided threshold
     lastConfusionTime: number,
     currentGpsSample: CarlaVehicleData,
     predictedLoc: Location,
+    // Last entry the location server decided to publish
     lastVisible: CarlaVehicleData,
+    // k nearest from all entries in the respective interval
     dependencies: string[],
+    // k nearest from all entries in the respective interval that the location server deiced to publish
     neighbors: string[]
 }
 
@@ -66,15 +70,18 @@ export type PathConfusionAlgorithmData = {
         /** Contains settings for the location server */
         server: Server,
         connectionStatus: StatusTypes,
-        /** A list of per agent colors to be used when drawing grid granules */
+        /** Settings received from the location server */
         algorithmSettings: AlgorithmSettings | null,
-        /** Contains geo information about the entire grid */
+        /** Contains all received release entries */
         releaseEntries: ReleaseEntry[]
         /** A list of agents containing grid relevant data */
         vehiclesData: VehiclesData,
         available_recordings: string[],
+        /** Determines if a recording is currently played */
         is_live: boolean,
+        /** The frontend user can select a release entry on the map to show k nearest entries and predicted position */
         selected_entry: ReleaseEntry | null,
+        /** Decide if the k nearest dependencies or k nearest neighbors are shown */
         isDisplayDependenciesSelected: boolean
     },
     setData: (newData: PathConfusionAlgorithmData["data"]) => void

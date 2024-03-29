@@ -7,20 +7,17 @@ import {
     Space,
     Switch,
     Table,
-    TextInput,
     Text,
     Stack,
-    Badge, Card, ActionIcon
+    Card
 } from "@mantine/core";
 import React, {useContext, useEffect, useMemo, useState} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {
     AlgorithmSettings,
-    MsgObserverServerAddRecording,
     MsgObserverServerReset
 } from "@/components/Algorithms/PathConfusion/types";
 import classes from "@/components/Algorithms/PathConfusion/DataTab/test.module.css";
-import {IconDeviceFloppy} from "@tabler/icons-react";
 import {useDisclosure} from "@mantine/hooks";
 
 export default function () {
@@ -28,9 +25,12 @@ export default function () {
         pathConfusionData
     } = useContext(AlgorithmDataContext);
 
+    /** Text shown when no connection to location server is established */
     const DEFAULT_TXT = "Loading... (waiting for server)";
 
+    /** Used to detect whenever the user is currently requesting to reset all algorithm data */
     const [isSendingRequest, setIsSendingRequest] = useDisclosure();
+    /** Stores unsaved changes the user made to the algorithm settings */
     const [cachedSettings, setCachedSettings] = useState<AlgorithmSettings|null>(null);
 
     const sendResetRequest = useMemo(() => function () {
@@ -47,6 +47,8 @@ export default function () {
         };
     }, []);
 
+    // Whenever new settings are received from the location server override cached settings to alert the user that
+    // a change occured
     useEffect(() => {
         setCachedSettings(pathConfusionData.algorithmSettings)
     }, [pathConfusionData.algorithmSettings]);
@@ -266,9 +268,6 @@ export default function () {
                 </Table>
                 <Space h="md"/>
                 <Group justify="flex-end">
-                    {/*<Text>*/}
-                    {/*    R: {pathConfusionData.releaseEntries.length}*/}
-                    {/*</Text>*/}
                     <Button
                         disabled={!pathConfusionData.connectionStatus.server}
                         variant="default" >
