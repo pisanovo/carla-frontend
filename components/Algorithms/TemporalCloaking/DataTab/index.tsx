@@ -103,7 +103,7 @@ export default function () {
                 checked={temporalCloakingData.showLocationServerLogs}
                 onChange={handleToggleLocationServerLogsVisibility} />
         </h3>
-        <pre style={{maxWidth: '80%', maxHeight: '200px', overflowX: 'auto', overflowY: 'auto' }}>
+        <pre style={{maxWidth: '80%', maxHeight: '300px', overflowX: 'auto', overflowY: 'auto' }}>
             [
                 {'\n'}
                 {temporalCloakingData.locationServerLogs.map((log) => `\t${JSON.stringify(log, null,'\0')},\n`)}

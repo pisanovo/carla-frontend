@@ -105,11 +105,10 @@ export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProp
         var lon_max: number;
         var lat_min: number;
         var lat_max: number;
-        var show_times: number=0
 
         var logItem;
 
-        if(temporalCloakingData.locationServerLogs.length>0 && show_times<10){
+        if(temporalCloakingData.locationServerLogs.length>0){
                 logItem = temporalCloakingData.locationServerLogs[0];
                 lon_min = +logItem.grid.lon_min;
                 lon_max = +logItem.grid.lon_max;
@@ -130,19 +129,7 @@ export function MapView({onAddLayer, onRemoveLayer}: TemporalCloakingMapViewProp
                     features: [feature_grid]
                 });
                 gridLayer?.setSource(newSource_grid);
-
-                if(last_lon_min==lon_min && last_lon_max==lon_max && last_lat_min==lat_min && last_lat_max==lat_max){
-                    show_times++;
-                }else{
-                    show_times = 0;
-                }
-
-                last_lon_min = lon_min;
-                last_lon_max = lon_max;
-                last_lat_min = lat_min;
-                last_lat_max = lat_max;
         }
-        // when no new carla data comes in and same data being displayed for long enough, stop showing positions on map
     }, [temporalCloakingData.locationServerLogs, gridLayer])
 
 
