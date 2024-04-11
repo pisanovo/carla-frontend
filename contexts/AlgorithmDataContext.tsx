@@ -79,13 +79,8 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
         setLocationCloakingData: () => {},
 
         temporalCloakingData: {
-            locationServer: {ip: "127.0.0.1", port: 8456},
-            connectionStatus: {locationServer: false},
-            constraint_k: 5,
-            ego_vehicle_id: 0,
-            total_vehicles: 0,
-            id_min: 0,
-            id_max: 0
+            locationServerLogs: [],
+            showLocationServerLogs: false,
         },
         setTemporalCloakingData: () => {}
     }
@@ -130,15 +125,10 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
         });
 
     const [temporalCloakingData, setTemporalCloakingData] =
-        useState<TemporalCloakingAlgorithmData["data"]>({
-            locationServer: {ip: "127.0.0.1", port: 8456},
-            connectionStatus: {locationServer: false},
-            constraint_k: 5,
-            ego_vehicle_id: 0,
-            total_vehicles: 0,
-            id_min: 0,
-            id_max: 0
-        });
+    useState<TemporalCloakingAlgorithmData["data"]>({
+        locationServerLogs: [],
+        showLocationServerLogs: false,
+    });
 
     // TODO: Add more algorithms
 

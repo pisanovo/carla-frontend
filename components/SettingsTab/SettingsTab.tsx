@@ -4,7 +4,6 @@ import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaki
 import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
-import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import {IconCircleFilled} from "@tabler/icons-react";
 
@@ -94,7 +93,7 @@ export function SettingsTab() {
                 }
 
                 {
-                    settings.selectedAlgorithm ===  TEMPORAL_CLOAKING_ID &&
+                    settings.selectedAlgorithm === "Temporal cloaking []" &&
                     <Card withBorder radius="md" p="xl" className={classes.card}>
                         <Text fz="lg" className={classes.title} fw={500}>
                             Temporal Cloaking
