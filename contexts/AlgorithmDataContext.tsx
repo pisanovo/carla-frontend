@@ -1,6 +1,7 @@
 import { RedundantDummLocationsAlgorithmData } from '@/components/Algorithms/RedundantDummyLocations/types';
 import React, {useState, createContext} from 'react';
 import {LocationCloakingAlgorithmData} from "@/components/Algorithms/LocationCloaking/types";
+import {TemporalCloakingAlgorithmData} from "@/components/Algorithms/TemporalCloaking/types";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {AgentsData, CarlaServer} from "@/contexts/types";
 import {PathConfusionAlgorithmData} from "@/components/Algorithms/PathConfusion/types";
@@ -16,7 +17,7 @@ export type AlgorithmDataContextType = {
 
         showAgentIDLabels: boolean,
         setShowAgentIDLabels: (state: boolean) => void,
-    }
+    },
 
     mapAgentsData: AgentsData,
     setMapAgentsData: (data: AgentsData) => void,
@@ -28,7 +29,10 @@ export type AlgorithmDataContextType = {
     setLocationCloakingData: LocationCloakingAlgorithmData["setData"],
 
     pathConfusionData: PathConfusionAlgorithmData["data"],
-    setPathConfusionData: PathConfusionAlgorithmData["setData"]
+    setPathConfusionData: PathConfusionAlgorithmData["setData"],
+
+    temporalCloakingData: TemporalCloakingAlgorithmData["data"],
+    setTemporalCloakingData: TemporalCloakingAlgorithmData["setData"],
     // TODO: Add more algorithms
 }
 
@@ -91,6 +95,11 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
         },
 
         setPathConfusionData: () => {},
+        temporalCloakingData: {
+            locationServerLogs: [],
+            showLocationServerLogs: false,
+        },
+        setTemporalCloakingData: () => {}
     }
     // TODO: Add more algorithms
 )
@@ -144,6 +153,11 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             is_live: true,
             selected_entry: null
         });
+    const [temporalCloakingData, setTemporalCloakingData] =
+    useState<TemporalCloakingAlgorithmData["data"]>({
+        locationServerLogs: [],
+        showLocationServerLogs: false,
+    });
 
     // TODO: Add more algorithms
 
@@ -164,7 +178,9 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             locationCloakingData: locationCloakingData,
             setLocationCloakingData: setLocationCloakingData,
             pathConfusionData,
-            setPathConfusionData
+            setPathConfusionData,
+            temporalCloakingData,
+            setTemporalCloakingData,
         }}
     >
         {children}

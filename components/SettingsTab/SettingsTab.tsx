@@ -1,7 +1,6 @@
 import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text, rem} from '@mantine/core';
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
-import {Settings as TemporalCloakingSettings} from '../Algorithms/TemporalCloaking/Settings/Settings';
 import PathConfusionSettings from "@/components/Algorithms/PathConfusion/Settings";
 import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
@@ -104,7 +103,7 @@ export function SettingsTab() {
                         <Text fz="xs" c="dimmed" mt={3} mb="xl">
                             Implementation related configuration settings
                         </Text>
-                        <TemporalCloakingSettings />
+                        TBD
                     </Card>
                 }
 
