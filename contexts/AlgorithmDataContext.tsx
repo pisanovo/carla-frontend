@@ -4,6 +4,7 @@ import {LocationCloakingAlgorithmData} from "@/components/Algorithms/LocationClo
 import {TemporalCloakingAlgorithmData} from "@/components/Algorithms/TemporalCloaking/types";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {AgentsData, CarlaServer} from "@/contexts/types";
+import {PathConfusionAlgorithmData} from "@/components/Algorithms/PathConfusion/types";
 
 
 export type AlgorithmDataContextType = {
@@ -16,7 +17,7 @@ export type AlgorithmDataContextType = {
 
         showAgentIDLabels: boolean,
         setShowAgentIDLabels: (state: boolean) => void,
-    }
+    },
 
     mapAgentsData: AgentsData,
     setMapAgentsData: (data: AgentsData) => void,
@@ -26,6 +27,9 @@ export type AlgorithmDataContextType = {
 
     locationCloakingData: LocationCloakingAlgorithmData["data"],
     setLocationCloakingData: LocationCloakingAlgorithmData["setData"],
+
+    pathConfusionData: PathConfusionAlgorithmData["data"],
+    setPathConfusionData: PathConfusionAlgorithmData["setData"],
 
     temporalCloakingData: TemporalCloakingAlgorithmData["data"],
     setTemporalCloakingData: TemporalCloakingAlgorithmData["setData"],
@@ -78,6 +82,19 @@ export const AlgorithmDataContext = createContext<AlgorithmDataContextType>(
         },
         setLocationCloakingData: () => {},
 
+        pathConfusionData: {
+            server: {ip: "127.0.0.1", port: 8765},
+            connectionStatus: {server: false},
+            algorithmSettings: null,
+            available_recordings: [],
+            releaseEntries: [],
+            vehiclesData: {available_vehicles: [], relevant_vehicles: []},
+            isDisplayDependenciesSelected: true,
+            is_live: true,
+            selected_entry: null
+        },
+
+        setPathConfusionData: () => {},
         temporalCloakingData: {
             locationServerLogs: [],
             showLocationServerLogs: false,
@@ -124,6 +141,18 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             gridPlane: {longitude: {min:0, max:0}, latitude: {min:0, max:0}}
         });
 
+    const [pathConfusionData, setPathConfusionData] =
+        useState<PathConfusionAlgorithmData["data"]>({
+            server: {ip: "127.0.0.1", port: 8765},
+            connectionStatus: {server: false},
+            algorithmSettings: null,
+            available_recordings: [],
+            releaseEntries: [],
+            vehiclesData: {available_vehicles: [], relevant_vehicles: []},
+            isDisplayDependenciesSelected: true,
+            is_live: true,
+            selected_entry: null
+        });
     const [temporalCloakingData, setTemporalCloakingData] =
     useState<TemporalCloakingAlgorithmData["data"]>({
         locationServerLogs: [],
@@ -148,6 +177,8 @@ export function AlgorithmDataContextProvider({ children } : AlgorithmDataContext
             setRedundantDummyLocationsData,
             locationCloakingData: locationCloakingData,
             setLocationCloakingData: setLocationCloakingData,
+            pathConfusionData,
+            setPathConfusionData,
             temporalCloakingData,
             setTemporalCloakingData,
         }}

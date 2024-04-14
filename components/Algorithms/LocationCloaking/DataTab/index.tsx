@@ -166,7 +166,6 @@ export default function () {
     }, [data?.gridPlane, data?.gridAgentData]);
 
     useEffect(() => {
-        console.log("STATUS", isLsWebsocketCon)
         if (isLsWebsocketCon) {
             setLocationCloakingData({...locationCloakingData, connectionStatus: {locationServer: true}})
         } else {

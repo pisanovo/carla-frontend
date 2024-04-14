@@ -1,8 +1,6 @@
 "use client";
 
 import Map from 'ol/Map.js';
-import OSM from 'ol/source/OSM.js';
-import TileLayer from 'ol/layer/Tile.js';
 import View from 'ol/View.js';
 import {transform} from 'ol/proj.js';
 import 'ol/ol.css';
@@ -26,10 +24,14 @@ import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
 import { REDUNDANT_DUMMY_LOCATIONS_ID } from '../Algorithms/RedundantDummyLocations/config';
 import RedundantDummyLocationsMapView from '@/components/Algorithms/RedundantDummyLocations/MapView'
+import PathConfusionMapView from '@/components/Algorithms/PathConfusion/MapView'
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {Agent} from "@/contexts/types";
+import {PATH_CONFUSION_ID} from "@/components/Algorithms/PathConfusion/config";
+import {apply} from "ol-mapbox-style";
+import {Attribution, defaults} from "ol/control";
 
 export function MapView() {
     const { mapAgentsData, setMapAgentsData, settings } = useContext(AlgorithmDataContext);
@@ -38,6 +40,8 @@ export function MapView() {
     const mapRef = useRef<Map>();
     /** Reconnect timeout to location server in ms */
     const BACKEND_SERVER_CONN_TIMEOUT = 4000;
+    /** Store the openlayers map object */
+    const [map, setMap] = useState<Map>();
     /** Save the current websocket connection and create a new one on timeout */
     const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -67,6 +71,7 @@ export function MapView() {
            text: baseTextStyle
         }), []);
 
+    // Layer used to display the car dots on the map
     const agentLayer = useMemo(() =>
         new VectorLayer({
             source: new VectorSource({
@@ -81,38 +86,65 @@ export function MapView() {
             }
         }), []);
 
+    // Group used to draw data on the map by the location cloaking algorithm
     const locationCloakingLayerGroup = useMemo(() =>
         new LayerGroup({
             layers: []
         }), []);
 
+    // Group used to draw data on the map by the redundant dummies algorithm
     const redundantDummiesLayerGroup = useMemo(() =>
         new LayerGroup({
             layers: []
         }), []);
 
+    // Group used to draw data on the map by the temporal cloaking algorithm
     const temporalCloakingLayerGroup = useMemo(() =>
         new LayerGroup({
             layers: []
         }), []);
 
+    // Group used to draw data on the map by the path confusion algorithm
+    const pathConfusionLayerGroup = useMemo(() =>
+        new LayerGroup({
+            layers: []
+        }), []);
+
+    // Group for maptiler to draw the map on
+    const mapGroup = useMemo(() =>
+        new LayerGroup({
+            layers: [],
+            zIndex: 1
+        }), []);
+
     useEffect(() => {
+        const styleJson = process.env.NEXT_PUBLIC_MAPTILER_URL;
+
+        const attribution = new Attribution({
+            collapsible: true,
+        });
+
+        // Map object
         const nmap = new Map({
             target: mapRef.current as unknown as HTMLElement,
+            controls: defaults({attribution: false}).extend([attribution]),
             layers: [
-                new TileLayer({
-                    source: new OSM()
-                }),
                 agentLayer,
+                pathConfusionLayerGroup,
                 locationCloakingLayerGroup,
                 temporalCloakingLayerGroup,
                 redundantDummiesLayerGroup,
+                mapGroup
             ],
             view: new View({
                 center: transform([9.10758, 48.74480], 'EPSG:4326', 'EPSG:3857'),
                 zoom: 15,
             }),
-        })
+        });
+
+        // Change the map style to the style provided by maptiler
+        apply(mapGroup, styleJson);
+        setMap(nmap);
     }, []);
 
     // Wrapper for the backend server websocket connection adding reconnect
@@ -130,6 +162,7 @@ export function MapView() {
         socket.addEventListener('message', (event) => next(null, () => {
             const eventJson = JSON.parse(event.data);
             const agents: Agent[] = eventJson["data"];
+            // Compute the set of agent ids available (currently driving on the map)
             const agent_ids = agents.reduce((acc, ag) => [...acc, ag.id], [] as string[]);
             setMapAgentsData({isBackendConnected: true, activeAgents: agent_ids, agents: agents});
         }))
@@ -146,7 +179,7 @@ export function MapView() {
 
     // Manages agents drawn on map, i.e., position update and cleanup of inactive agents
     useEffect(() => {
-        const agentFeatures = agentLayer?.getSource()?.getFeatures();
+        const agentFeatures = agentLayer?.getSource().getFeatures();
 
         if (agentFeatures === undefined) return;
 
@@ -207,6 +240,9 @@ export function MapView() {
         if (settings.selectedAlgorithm !== REDUNDANT_DUMMY_LOCATIONS_ID) {
             redundantDummiesLayerGroup?.getLayers().clear();
         }
+        if(settings.selectedAlgorithm !== PATH_CONFUSION_ID) {
+            redundantDummiesLayerGroup?.getLayers().clear();
+        }
     }, [settings.selectedAlgorithm]);
 
     return (
@@ -232,6 +268,14 @@ export function MapView() {
                     <TemporalCloakingMapView
                         onAddLayer={(layer: Layer) => temporalCloakingLayerGroup?.getLayers()?.push(layer)}
                         onRemoveLayer={(layer: Layer) => temporalCloakingLayerGroup?.getLayers()?.remove(layer)}
+                    />
+                }
+                {
+                    settings.selectedAlgorithm === PATH_CONFUSION_ID &&
+                    <PathConfusionMapView
+                        onAddLayer={(layer: Layer) => pathConfusionLayerGroup?.getLayers()?.push(layer)}
+                        onRemoveLayer={(layer: Layer) => pathConfusionLayerGroup?.getLayers()?.remove(layer)}
+                        map={map}
                     />
                 }
             </div>

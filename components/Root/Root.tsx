@@ -1,4 +1,4 @@
-import {useContext} from "react";
+import React, {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {
     ActionIcon,
@@ -6,13 +6,14 @@ import {
     Card,
     Chip,
     Grid,
-    Group,
+    Group, HoverCard,
     NativeSelect,
     Overlay,
     rem,
     Space,
     Stack,
-    Tabs
+    Tabs,
+    Text
 } from "@mantine/core";
 import {HeaderIndex} from "@/components/Header/HeaderIndex";
 import {Icon123, IconNavigationCode, IconSettings, IconX} from "@tabler/icons-react";
@@ -20,9 +21,11 @@ import LocationCloakingDataTab from "@/components/Algorithms/LocationCloaking/Da
 import TemporalCloakingDataTab from "@/components/Algorithms/TemporalCloaking/DataTab";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import RedundantDummyLocationsDataTab from "@/components/Algorithms/RedundantDummyLocations/DataTab";
+import PathConfusionDataTab from "@/components/Algorithms/PathConfusion/DataTab";
 import {SettingsTab} from "@/components/SettingsTab/SettingsTab";
 import {MapView} from "@/components/MapView/MapView";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {PATH_CONFUSION_ID} from "@/components/Algorithms/PathConfusion/config";
 import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 
 export function Root() {
@@ -63,6 +66,10 @@ export function Root() {
                                         settings.selectedAlgorithm == REDUNDANT_DUMMY_LOCATIONS_ID &&
                                         <RedundantDummyLocationsDataTab />
                                     }
+                                    {
+                                        settings.selectedAlgorithm == PATH_CONFUSION_ID &&
+                                        <PathConfusionDataTab />
+                                    }
 
                                 </Tabs.Panel>
 
@@ -87,18 +94,27 @@ export function Root() {
                                          root: { display: "flex", top: "calc(95%)" }
                                      }}
                             >
-                                <ActionIcon
-                                    variant="default"
-                                    color="gray"
-                                    aria-label="Settings"
-                                    onClick={(event) =>
-                                        settings.setShowAgentIDLabels(!settings.showAgentIDLabels)}
-                                    styles={{
-                                        root: { alignSelf: "flex-end" }
-                                    }}
-                                >
-                                    <Icon123 style={{ width: '70%', height: '70%' }} stroke={1.5} />
-                                </ActionIcon>
+                                <HoverCard shadow="md" withArrow position="right">
+                                    <HoverCard.Target>
+                                        <ActionIcon
+                                            variant="default"
+                                            color="gray"
+                                            aria-label="Settings"
+                                            onClick={(event) =>
+                                                settings.setShowAgentIDLabels(!settings.showAgentIDLabels)}
+                                            styles={{
+                                                root: { alignSelf: "flex-end" }
+                                            }}
+                                        >
+                                            <Icon123 style={{ width: '70%', height: '70%' }} stroke={1.5} />
+                                        </ActionIcon>
+                                    </HoverCard.Target>
+                                    <HoverCard.Dropdown h={30}>
+                                        <Text size="xs" mt={-6}>
+                                            Show vehicle IDs
+                                        </Text>
+                                    </HoverCard.Dropdown>
+                                </HoverCard>
                             </Overlay>
 
                             <MapView />
@@ -118,7 +134,7 @@ export function Root() {
                                 "Algorithm: " + LOCATION_CLOAKING_ID,
                                 "Algorithm: " + TEMPORAL_CLOAKING_ID,
                                 "Algorithm: " + REDUNDANT_DUMMY_LOCATIONS_ID,
-                                "Algorithm: " + "Path confusion []"
+                                "Algorithm: " + PATH_CONFUSION_ID
                             ]}
                         />
                     </Group>

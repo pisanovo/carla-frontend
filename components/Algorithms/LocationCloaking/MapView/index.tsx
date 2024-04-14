@@ -88,7 +88,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             }),
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 2
+            zIndex: 3
         }), [locationCloakingData.gridPlane]);
 
     /** Layer that visualizes agent position granules */
@@ -99,7 +99,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             }),
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 1
+            zIndex: 2
         }), []);
 
     /** Layer that visualizes agent vicinity granules */
@@ -110,7 +110,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             }),
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 1
+            zIndex: 2
         }), []);
 
     /** Layer that visualizes agent vicinity shapes (currently only circular) */
@@ -121,7 +121,7 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
             }),
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 3
+            zIndex: 4
         }), []);
 
     /** Helper function to extract the agent ID from the feature name composed as agentId:granuleId */
@@ -385,7 +385,6 @@ export function MapView({onAddLayer, onRemoveLayer}: LocationCloakingMapViewProp
     }, [locationCloakingData.tileColors, locationCloakingData.gridAgentData]);
 
     useEffect(() => {
-        console.log("REDRAW", locationCloakingData.gridPlane);
         gridLayer.getSource()?.clear();
         gridLayer.getSource()?.addFeature(gridBoundingBoxFeature);
         positionGranulesLayer.getSource()?.clear();

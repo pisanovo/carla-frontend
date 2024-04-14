@@ -12,6 +12,10 @@ export type Agent = {
         x: number,
         y: number
     },
+    speed: {
+        velocityX: number,
+        velocityY: number
+    },
     /** Can be used to draw a circle of x meters around an agent
      * and account for the curvature of the earth */
     greatCircleDistanceFactor: number

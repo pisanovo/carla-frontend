@@ -1,11 +1,13 @@
 import {Card, Group, Input, NumberInput, ScrollArea, Stack, Text, rem} from '@mantine/core';
 import classes from './SettingsTab.module.css';
 import {Settings as LocationCloakingSettings} from '../Algorithms/LocationCloaking/Settings/Settings';
+import PathConfusionSettings from "@/components/Algorithms/PathConfusion/Settings";
 import {useContext} from "react";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
 import {REDUNDANT_DUMMY_LOCATIONS_ID} from "@/components/Algorithms/RedundantDummyLocations/config";
 import {IconCircleFilled} from "@tabler/icons-react";
+import {PATH_CONFUSION_ID} from "@/components/Algorithms/PathConfusion/config";
 
 export type AlgorithmSettings = {
     settings: any,
@@ -119,7 +121,7 @@ export function SettingsTab() {
                 }
 
                 {
-                    settings.selectedAlgorithm === "Path confusion []" &&
+                    settings.selectedAlgorithm === PATH_CONFUSION_ID &&
                     <Card withBorder radius="md" p="xl" className={classes.card}>
                         <Text fz="lg" className={classes.title} fw={500}>
                             Path confusion
@@ -127,7 +129,7 @@ export function SettingsTab() {
                         <Text fz="xs" c="dimmed" mt={3} mb="xl">
                             Implementation related configuration settings
                         </Text>
-                        TBD
+                        <PathConfusionSettings />
                     </Card>
                 }
             </Stack>
