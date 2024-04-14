@@ -20,12 +20,14 @@ import useSWRSubscription from 'swr/subscription'
 import {Feature} from "ol";
 import {Point} from "ol/geom";
 import {MapView as LocationCloakingMapView} from "../Algorithms/LocationCloaking/MapView/index"
+import {MapView as TemporalCloakingMapView} from "../Algorithms/TemporalCloaking/MapView/index"
 import LayerGroup from "ol/layer/Group";
 import {Fill, Stroke, Style, Circle} from "ol/style";
 import Text from 'ol/style/Text.js';
 import { REDUNDANT_DUMMY_LOCATIONS_ID } from '../Algorithms/RedundantDummyLocations/config';
 import RedundantDummyLocationsMapView from '@/components/Algorithms/RedundantDummyLocations/MapView'
 import {LOCATION_CLOAKING_ID} from "@/components/Algorithms/LocationCloaking/config";
+import {TEMPORAL_CLOAKING_ID} from "@/components/Algorithms/TemporalCloaking/config";
 import {AlgorithmDataContext} from "@/contexts/AlgorithmDataContext";
 import {Agent} from "@/contexts/types";
 
@@ -199,7 +201,7 @@ export function MapView() {
         if (settings.selectedAlgorithm !== LOCATION_CLOAKING_ID) {
             locationCloakingLayerGroup?.getLayers().clear();
         }
-        if (settings.selectedAlgorithm !== "Temporal cloaking []") {
+        if (settings.selectedAlgorithm !== TEMPORAL_CLOAKING_ID) {
             temporalCloakingLayerGroup?.getLayers().clear();
         }
         if (settings.selectedAlgorithm !== REDUNDANT_DUMMY_LOCATIONS_ID) {
@@ -226,14 +228,11 @@ export function MapView() {
                         onRemoveLayer={(layer: Layer) => redundantDummiesLayerGroup?.getLayers()?.remove(layer)}
                     />
                 }
-                {settings.selectedAlgorithm === "Temporal cloaking []" && true
-                    // <TemporalCloakingMapView
-                        // map={map}
-                        // parent={parent}
-                        // carla_settings={props.carlaSettings}
-                        // algo_data={props.algo.temporalCloakingSettings}
-                        // layers={temporalCloakingLayerGroup.getLayers()}
-                    // />
+                {settings.selectedAlgorithm === TEMPORAL_CLOAKING_ID &&
+                    <TemporalCloakingMapView
+                        onAddLayer={(layer: Layer) => temporalCloakingLayerGroup?.getLayers()?.push(layer)}
+                        onRemoveLayer={(layer: Layer) => temporalCloakingLayerGroup?.getLayers()?.remove(layer)}
+                    />
                 }
             </div>
     );
